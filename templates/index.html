@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연구소 라벨 제작 프로그램</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    </style>
+    <script>
+        function selectDocType(element) {
+            // 모든 문서 종류 버튼에서 active 클래스 제거
+            document.querySelectorAll('[onclick="selectDocType(this)"]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 클릭된 버튼에 active 클래스 추가
+            element.classList.add('active');
+            
+            // hidden input 값 업데이트
+            const docType = element.getAttribute('data-value');
+            document.getElementById('doc_type').value = docType;
+            
+            updateFormFields();
+        }
+        
+        function selectBinderSize(element) {
+            // 모든 바인더 크기 버튼에서 active 클래스 제거
+            document.querySelectorAll('[onclick="selectBinderSize(this)"]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 클릭된 버튼에 active 클래스 추가
+            element.classList.add('active');
+            
+            // hidden input 값 업데이트
+            const binderSize = element.getAttribute('data-value');
+            document.getElementById('binder_size').value = binderSize;
+        }
+        
+        function updateFormFields() {
+            const docType = document.getElementById('doc_type').value;
+            const eqFields = document.getElementById('eq_fields');
+            const pjtFields = document.getElementById('pjt_fields');
+            const binderButtons = document.querySelectorAll('[onclick="selectBinderSize(this)"]');
+
+            if (docType == '1') {
+                eqFields.style.display = 'block';
+                pjtFields.style.display = 'none';
+                
+                // 3cm 미만 버튼 보이기
+                binderButtons.forEach(btn => {
+                    if (btn.getAttribute('data-value') === '1') {
+                        btn.style.display = 'flex';
+                    }
+                });
+            } else if (docType == '2') {
+                eqFields.style.display = 'none';
+                pjtFields.style.display = 'block';
+                
+                // 3cm 미만 버튼 숨기기 및 다른 옵션으로 변경
+                binderButtons.forEach(btn => {
+                    if (btn.getAttribute('data-value') === '1') {
+                        btn.style.display = 'none';
+                        if (btn.classList.contains('active')) {
+                            btn.classList.remove('active');
+                            // 3cm 버튼을 활성화
+                            const defaultBtn = document.querySelector('[data-value="3"][onclick="selectBinderSize(this)"]');
+                            defaultBtn.classList.add('active');
+                            document.getElementById('binder_size').value = '3';
+                        }
+                    }
+                });
+            }
+        }
+
+        function validateForm() {
+            const docType = document.getElementById('doc_type').value;
+            const requiredFields = docType == '1' ? document.querySelectorAll('#eq_fields input') : document.querySelectorAll('#pjt_fields input');
+
+            for (const field of requiredFields) {
+                if (field.value.trim() === '') {
+                    showErrorMessage('❌ 모든 필드를 채워주세요.');
+                    field.focus();
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            const submitBtn = document.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '생성 중...';
+            submitBtn.style.opacity = '0.7';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            const submitBtn = document.querySelector('.submit-btn');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '라벨 만들기';
+            submitBtn.style.opacity = '1';
+        }
+        
+        function showSuccessMessage() {
+            showMessage('✅ 라벨이 성공적으로 생성되어 다운로드되었습니다!', 'success');
+        }
+        
+        function showErrorMessage(message) {
+            showMessage(message, 'error');
+        }
+        
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `alert alert-${type}`;
+            messageDiv.innerHTML = message;
+            
+            const isError = type === 'error';
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                max-width: 350px;
+                padding: 15px 20px;
+                background: ${isError ? '#f8d7da' : '#d4edda'};
+                color: ${isError ? '#721c24' : '#155724'};
+                border: 1px solid ${isError ? '#f5c6cb' : '#c3e6cb'};
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                font-weight: 600;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            document.body.appendChild(messageDiv);
+            
+            // 에러 메시지는 6초, 성공 메시지는 4초 후 제거
+            const duration = isError ? 6000 : 4000;
+            setTimeout(function() {
+                messageDiv.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(function() {
+                    if (messageDiv.parentNode) {
+                        messageDiv.parentNode.removeChild(messageDiv);
+                    }
+                }, 300);
+            }, duration);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            updateFormFields(); // 초기 폼 상태 설정
+            
+            // 폼 제출 이벤트 처리
+            const form = document.querySelector('form');
+            let formSubmitted = false;
+            let downloadStarted = false;
+            
+            form.addEventListener('submit', function(e) {
+                // 폼 검증이 실패하면 성공 처리하지 않음
+                if (!validateForm()) {
+                    return false;
+                }
+                
+                // 검증 통과 후 로딩 표시
+                showLoading();
+                formSubmitted = true;
+                downloadStarted = false;
+                
+                // 다운로드 감지를 위한 타이머 (5초 후 타임아웃)
+                const downloadTimer = setTimeout(function() {
+                    if (formSubmitted && !downloadStarted) {
+                        // 에러 발생 가능성 - 로딩 해제하고 에러 메시지 표시
+                        hideLoading();
+                        showErrorMessage('❌ 라벨 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+                        formSubmitted = false;
+                    }
+                }, 5000);
+                
+                // 실제 파일 다운로드 감지
+                const checkDownload = setInterval(function() {
+                    // 페이지에 에러 메시지가 표시되었는지 확인
+                    const errorAlert = document.querySelector('.alert-error');
+                    if (errorAlert) {
+                        clearInterval(checkDownload);
+                        clearTimeout(downloadTimer);
+                        hideLoading();
+                        formSubmitted = false;
+                        downloadStarted = false;
+                        return;
+                    }
+                }, 500);
+                
+                // 실제 다운로드 감지를 위한 이벤트 리스너 추가
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                
+                // 다운로드 감지용 쿠키 체크
+                const originalCookie = document.cookie;
+                const cookieCheckInterval = setInterval(function() {
+                    // 쿠키 변화 감지 (서버에서 다운로드 완료 시 쿠키 설정)
+                    if (document.cookie !== originalCookie && document.cookie.includes('download_complete')) {
+                        clearInterval(cookieCheckInterval);
+                        clearInterval(checkDownload);
+                        clearTimeout(downloadTimer);
+                        
+                        downloadStarted = true;
+                        hideLoading();
+                        showSuccessMessage();
+                        formSubmitted = false;
+                        downloadStarted = false;
+                        
+                        // 다운로드 완료 쿠키 삭제
+                        document.cookie = 'download_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                        document.body.removeChild(iframe);
+                        return;
+                    }
+                }, 100);
+                
+                // 브라우저 포커스 변경 감지 (다운로드 시 발생할 수 있음)
+                let focusChangeTimeout;
+                const handleFocusChange = function() {
+                    clearTimeout(focusChangeTimeout);
+                    focusChangeTimeout = setTimeout(function() {
+                        if (formSubmitted && !downloadStarted) {
+                            // 포커스 변경 후 잠시 기다려서 다운로드 확인
+                            setTimeout(function() {
+                                if (formSubmitted && !downloadStarted) {
+                                    clearInterval(cookieCheckInterval);
+                                    clearInterval(checkDownload);
+                                    clearTimeout(downloadTimer);
+                                    
+                                    downloadStarted = true;
+                                    hideLoading();
+                                    showSuccessMessage();
+                                    formSubmitted = false;
+                                    downloadStarted = false;
+                                    
+                                    document.body.removeChild(iframe);
+                                    window.removeEventListener('focus', handleFocusChange);
+                                    window.removeEventListener('blur', handleFocusChange);
+                                }
+                            }, 500);
+                        }
+                    }, 100);
+                };
+                
+                window.addEventListener('focus', handleFocusChange);
+                window.addEventListener('blur', handleFocusChange);
+            });
+            
+            // 페이지 포커스 이벤트 (다운로드 후 브라우저로 돌아올 때)
+            window.addEventListener('focus', function() {
+                if (formSubmitted && downloadStarted) {
+                    setTimeout(function() {
+                        hideLoading();
+                        showSuccessMessage();
+                        formSubmitted = false;
+                        downloadStarted = false;
+                    }, 500);
+                }
+            });
+            
+            // 페이지 가시성 변경 감지
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden && formSubmitted && downloadStarted) {
+                    setTimeout(function() {
+                        hideLoading();
+                        showSuccessMessage();
+                        formSubmitted = false;
+                        downloadStarted = false;
+                    }, 500);
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="header-container">
+            <div class="logo-section">
+                <div class="company-logo">
+                    <span class="logo-text">inno.N</span>
+                </div>
+            </div>
+            <h1>연구소 바인더 라벨 제작 프로그램</h1>
+        </div>
+        
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/logs" style="
+                display: inline-block;
+                padding: 10px 20px;
+                background: linear-gradient(45deg, #276ef1, #1e5fd8);
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                margin-right: 10px;
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 5px 15px rgba(39, 110, 241, 0.3)'" 
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                📋 시스템 로그 확인
+            </a>
+            <a href="/api/docs" style="
+                display: inline-block;
+                padding: 10px 20px;
+                background: linear-gradient(45deg, #28a745, #20c997);
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 5px 15px rgba(40, 167, 69, 0.3)'" 
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                📚 API 문서 확인
+            </a>
+        </div>
+        <form action="/create_label" method="post" onsubmit="return validateForm();">
+            <div class="form-sections">
+                <div class="form-section">
+                    <div class="section-title">기본 설정</div>
+                    <div class="form-group">
+                        <label>문서 종류:</label>
+                        <div class="option-group">
+                            <div class="option-button active" data-value="1" onclick="selectDocType(this)">
+                                <span class="option-icon">🔧</span>
+                                <span>기기 문서</span>
+                            </div>
+                            <div class="option-button" data-value="2" onclick="selectDocType(this)">
+                                <span class="option-icon">📋</span>
+                                <span>과제 문서</span>
+                            </div>
+                        </div>
+                        <input type="hidden" id="doc_type" name="doc_type" value="1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>바인더 크기:</label>
+                        <div class="option-group">
+                            <div class="option-button" data-value="1" onclick="selectBinderSize(this)">
+                                <span class="option-icon">📏</span>
+                                <span>3cm 미만</span>
+                            </div>
+                            <div class="option-button active" data-value="3" onclick="selectBinderSize(this)">
+                                <span class="option-icon">📐</span>
+                                <span>3cm</span>
+                            </div>
+                            <div class="option-button" data-value="5" onclick="selectBinderSize(this)">
+                                <span class="option-icon">📖</span>
+                                <span>5cm</span>
+                            </div>
+                            <div class="option-button" data-value="7" onclick="selectBinderSize(this)">
+                                <span class="option-icon">📚</span>
+                                <span>7cm</span>
+                            </div>
+                        </div>
+                        <input type="hidden" id="binder_size" name="binder_size" value="3">
+                    </div>
+                </div>
+
+                <div id="eq_fields" class="form-section">
+                    <div class="section-title">기기 문서 정보</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="eq_number">기기 번호:</label>
+                            <input type="text" id="eq_number" name="eq_number" placeholder="기기 번호를 입력하세요">
+                        </div>
+                        <div class="form-group">
+                            <label for="eq_doc_number">문서 번호:</label>
+                            <input type="text" id="eq_doc_number" name="eq_doc_number" placeholder="문서 번호를 입력하세요">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="eq_doc_title">문서 제목:</label>
+                        <input type="text" id="eq_doc_title" name="eq_doc_title" placeholder="문서 제목을 입력하세요">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="eq_doc_count">총 권수:</label>
+                            <input type="number" id="eq_doc_count" name="eq_doc_count" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="eq_doc_department">작성 부서:</label>
+                            <input type="text" id="eq_doc_department" name="eq_doc_department" placeholder="작성 부서를 입력하세요">
+                        </div>
+                        <div class="form-group">
+                            <label for="eq_doc_year">연도:</label>
+                            <input type="number" id="eq_doc_year" name="eq_doc_year" value="{{ current_year }}" min="1900" max="2100">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="pjt_fields" class="form-section">
+                    <div class="section-title">과제 문서 정보</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pjt_number">과제 코드:</label>
+                            <input type="text" id="pjt_number" name="pjt_number" placeholder="과제 코드를 입력하세요">
+                        </div>
+                        <div class="form-group">
+                            <label for="pjt_test_number">시험 번호:</label>
+                            <input type="text" id="pjt_test_number" name="pjt_test_number" placeholder="시험 번호를 입력하세요">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="pjt_doc_title">문서 제목:</label>
+                        <input type="text" id="pjt_doc_title" name="pjt_doc_title" placeholder="문서 제목을 입력하세요">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pjt_doc_writer">연구 담당자:</label>
+                            <input type="text" id="pjt_doc_writer" name="pjt_doc_writer" placeholder="연구 담당자를 입력하세요">
+                        </div>
+                        <div class="form-group">
+                            <label for="pjt_doc_count">총 권수:</label>
+                            <input type="number" id="pjt_doc_count" name="pjt_doc_count" value="1" min="1">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <button type="submit" class="submit-btn">라벨 만들기</button>
+        </form>
+        
+        <div class="contact-info">
+            <div class="contact-title">📞 담당자 정보</div>
+            <div class="contact-details">
+                <div class="contact-item">
+                    <span class="contact-icon">👤</span>
+                    <span class="contact-label">담당자:</span>
+                    <span class="contact-value">R&D QA팀 박진기님</span>
+                </div>
+                <div class="contact-item">
+                    <span class="contact-icon">📞</span>
+                    <span class="contact-label">전화번호:</span>
+                    <a href="tel:031-5176-4600" class="contact-value contact-link">031-5176-4600</a>
+                </div>
+                <div class="contact-item">
+                    <span class="contact-icon">📧</span>
+                    <span class="contact-label">이메일:</span>
+                    <a href="mailto:jinki.park@inno-n.com" class="contact-value contact-link">jinki.park@inno-n.com</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>라벨을 생성하는 중...</p>
+        </div>
+    </div>
+</body>
+</html>

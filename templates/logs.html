@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그 확인 - 연구소 라벨 제작 프로그램</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .logs-container {
+            margin-top: 20px;
+        }
+        
+        .log-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .log-controls > div {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .log-controls label {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .log-controls input, .log-controls select {
+            padding: 8px 12px;
+            border: 2px solid #e3f2fd;
+            border-radius: 8px;
+            font-size: 14px;
+            min-width: 120px;
+        }
+        
+        .log-display {
+            background: #1e1e1e;
+            color: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            border: 2px solid #34495e;
+        }
+        
+        .log-line {
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        
+        .log-line.info {
+            background: rgba(39, 110, 241, 0.1);
+            border-left: 3px solid #276ef1;
+        }
+        
+        .log-line.warning {
+            background: rgba(241, 196, 15, 0.1);
+            border-left: 3px solid #f1c40f;
+        }
+        
+        .log-line.error {
+            background: rgba(231, 76, 60, 0.1);
+            border-left: 3px solid #e74c3c;
+        }
+        
+        .log-line.debug {
+            background: rgba(155, 89, 182, 0.1);
+            border-left: 3px solid #9b59b6;
+        }
+        
+        .log-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .log-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-refresh {
+            background: linear-gradient(45deg, #276ef1, #1e5fd8);
+            color: white;
+        }
+        
+        .btn-refresh:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 110, 241, 0.3);
+        }
+        
+        .btn-clear {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .btn-clear:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+        }
+        
+        .btn-download {
+            background: linear-gradient(45deg, #27ae60, #229954);
+            color: white;
+        }
+        
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+        
+        .btn-home {
+            background: linear-gradient(45deg, #276ef1, #1e5fd8);
+            color: white;
+        }
+        
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 110, 241, 0.3);
+        }
+        
+        .log-info {
+            background: rgba(39, 110, 241, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #276ef1;
+        }
+        
+        .log-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 20px;
+        }
+        
+        .empty-logs {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px;
+            font-style: italic;
+        }
+        
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .auto-refresh input[type="checkbox"] {
+            margin: 0;
+            min-width: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .log-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .log-controls > div {
+                width: 100%;
+            }
+            
+            .log-actions {
+                flex-direction: column;
+            }
+            
+            .log-actions button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>시스템 로그 확인</h1>
+        
+        <div class="log-actions">
+            <button class="btn-home" onclick="location.href='/'">
+                🏠 홈으로
+            </button>
+            <button class="btn-refresh" onclick="loadLogs()">
+                🔄 새로고침
+            </button>
+            <button class="btn-download" onclick="downloadLogs()">
+                📥 로그 다운로드
+            </button>
+            <button class="btn-clear" onclick="clearLogs()">
+                🗑️ 로그 초기화
+            </button>
+        </div>
+        
+        <div class="log-controls">
+            <div>
+                <label for="lines">표시할 줄 수:</label>
+                <select id="lines" onchange="loadLogs()">
+                    <option value="50">50줄</option>
+                    <option value="100" selected>100줄</option>
+                    <option value="200">200줄</option>
+                    <option value="500">500줄</option>
+                    <option value="1000">1000줄</option>
+                </select>
+            </div>
+            
+            <div>
+                <label for="level">로그 레벨:</label>
+                <select id="level" onchange="loadLogs()">
+                    <option value="all" selected>전체</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="DEBUG">DEBUG</option>
+                </select>
+            </div>
+            
+            <div>
+                <label for="search">검색:</label>
+                <input type="text" id="search" placeholder="검색어 입력..." onkeyup="debounceSearch()">
+            </div>
+            
+            <div class="auto-refresh">
+                <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+                <label for="autoRefresh">자동 새로고침 (5초)</label>
+            </div>
+        </div>
+        
+        <div class="log-info" id="logInfo" style="display: none;">
+            <div class="log-stats" id="logStats"></div>
+            <div id="logMessage"></div>
+        </div>
+        
+        <div class="logs-container">
+            <div class="log-display" id="logDisplay">
+                <div class="loading">로그를 불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let searchTimeout = null;
+        
+        function loadLogs() {
+            const lines = document.getElementById('lines').value;
+            const level = document.getElementById('level').value;
+            const search = document.getElementById('search').value;
+            
+            const params = new URLSearchParams({
+                lines: lines,
+                level: level,
+                search: search
+            });
+            
+            document.getElementById('logDisplay').innerHTML = '<div class="loading">로그를 불러오는 중...</div>';
+            
+            fetch(`/api/logs?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    displayLogs(data);
+                })
+                .catch(error => {
+                    console.error('Error loading logs:', error);
+                    document.getElementById('logDisplay').innerHTML = 
+                        '<div class="empty-logs">로그를 불러오는 중 오류가 발생했습니다.</div>';
+                });
+        }
+        
+        function displayLogs(data) {
+            const logDisplay = document.getElementById('logDisplay');
+            const logInfo = document.getElementById('logInfo');
+            const logStats = document.getElementById('logStats');
+            const logMessage = document.getElementById('logMessage');
+            
+            if (data.success) {
+                // 통계 정보 표시
+                logStats.innerHTML = `
+                    <div class="stat-item">총 로그: ${data.total_lines}줄</div>
+                    <div class="stat-item">요청한 줄 수: ${data.requested_lines}줄</div>
+                    <div class="stat-item">레벨 필터: ${data.level_filter}</div>
+                    ${data.search_filter ? `<div class="stat-item">검색: "${data.search_filter}"</div>` : ''}
+                `;
+                
+                logMessage.textContent = data.message || '';
+                logInfo.style.display = 'block';
+                
+                if (data.logs.length === 0) {
+                    logDisplay.innerHTML = '<div class="empty-logs">표시할 로그가 없습니다.</div>';
+                    return;
+                }
+                
+                let logsHtml = '';
+                data.logs.forEach(log => {
+                    const logClass = getLogClass(log);
+                    logsHtml += `<div class="log-line ${logClass}">${escapeHtml(log)}</div>`;
+                });
+                
+                logDisplay.innerHTML = logsHtml;
+                
+                // 스크롤을 맨 아래로
+                logDisplay.scrollTop = logDisplay.scrollHeight;
+                
+            } else {
+                logDisplay.innerHTML = `<div class="empty-logs">오류: ${data.error}</div>`;
+                logInfo.style.display = 'none';
+            }
+        }
+        
+        function getLogClass(logLine) {
+            if (logLine.includes('ERROR')) return 'error';
+            if (logLine.includes('WARNING')) return 'warning';
+            if (logLine.includes('DEBUG')) return 'debug';
+            if (logLine.includes('INFO')) return 'info';
+            return '';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function downloadLogs() {
+            window.open('/api/logs/download', '_blank');
+        }
+        
+        function clearLogs() {
+            if (!confirm('정말로 로그를 초기화하시겠습니까? 기존 로그는 백업됩니다.')) {
+                return;
+            }
+            
+            fetch('/api/logs/clear', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    loadLogs();
+                } else {
+                    alert('오류: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing logs:', error);
+                alert('로그 초기화 중 오류가 발생했습니다.');
+            });
+        }
+        
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            
+            if (checkbox.checked) {
+                autoRefreshInterval = setInterval(loadLogs, 5000);
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+        }
+        
+        function debounceSearch() {
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            searchTimeout = setTimeout(loadLogs, 500);
+        }
+        
+        // 페이지 로드 시 로그 불러오기
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLogs();
+        });
+        
+        // 페이지 종료 시 자동 새로고침 해제
+        window.addEventListener('beforeunload', function() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>
