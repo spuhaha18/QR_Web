@@ -5,8 +5,9 @@ services:
     build: .
     container_name: qr-web-app
     user: "root"
+    network_mode: "bridge"
     ports:
-      - "5000:5000"
+      - "0.0.0.0:5000:5000"
     environment:
       - SECRET_KEY=${SECRET_KEY:-your_secret_key_change_in_production}
       - FLASK_ENV=${FLASK_ENV:-production}
