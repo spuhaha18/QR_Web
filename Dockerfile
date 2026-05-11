@@ -42,7 +42,7 @@ EXPOSE 5000
 
 # 헬스체크 추가
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:5000/api/health')" || exit 1
+    CMD python -c "from urllib.request import urlopen; urlopen('http://localhost:5000/api/health')" || exit 1
 
 # Run Application
 CMD ["python", "run_waitress.py"]
