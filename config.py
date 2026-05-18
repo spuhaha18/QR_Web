@@ -41,6 +41,10 @@ class Config:
     # 보안 설정
     ALLOWED_EXTENSIONS = {'xlsx', 'png', 'jpg', 'jpeg'}
     MAX_FILENAME_LENGTH = 100
+
+    # QR 이미지 업로드 설정 (paste 모드)
+    MAX_QR_FILES = int(os.environ.get('MAX_QR_FILES', 50))
+    MAX_QR_FILE_SIZE = int(os.environ.get('MAX_QR_FILE_SIZE', 2 * 1024 * 1024))  # 2MB
     
     # 문서 타입 설정
     DOCUMENT_TYPES = {
