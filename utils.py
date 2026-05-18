@@ -2,11 +2,13 @@
 Utility functions for QR Web application
 """
 import os
+import io
 import time
 import threading
 import logging
 from datetime import datetime
 from flask import request
+from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
@@ -81,3 +83,32 @@ def safe_int_conversion(value, default=1):
         return max(1, result)  # 최소값 1 보장
     except (ValueError, TypeError):
         return default
+
+
+def validate_qr_image_bytes(data: bytes) -> bool:
+    """PNG 바이트 유효성 검사. Pillow verify + PNG 형식 강제."""
+    if not data:
+        return False
+    try:
+        img = PILImage.open(io.BytesIO(data))
+        img.verify()          # 파일 손상/위조 검사 (verify 후 img 재사용 불가)
+        img2 = PILImage.open(io.BytesIO(data))
+        return img2.format == 'PNG'
+    except Exception:
+        return False
+
+
+def delete_dir_later(dirpath: str, delay: int = 600):
+    """지정된 시간 후 디렉토리를 재귀 삭제한다."""
+    import shutil
+
+    def _delete():
+        time.sleep(delay)
+        if os.path.isdir(dirpath):
+            try:
+                shutil.rmtree(dirpath)
+                logger.info(f"Temp dir deleted: {dirpath}")
+            except OSError as e:
+                logger.error(f"Failed to delete temp dir {dirpath}: {e}")
+
+    threading.Thread(target=_delete, daemon=True).start()
