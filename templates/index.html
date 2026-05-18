@@ -316,7 +316,7 @@
             </a>
         </div>
 
-        <form action="/create_label" method="post">
+        <form action="/create_label" method="post" enctype="multipart/form-data" id="label-form">
             <div class="form-sections">
                 <div class="form-section">
                     <div class="section-title">
@@ -425,6 +425,20 @@
                     </div>
                 </div>
 
+                <div class="form-section" id="qr_section">
+                    <div class="section-title">
+                        <i data-lucide="qr-code"></i> QR 이미지
+                    </div>
+                    <div class="qr-dropzone" id="qr_dropzone" tabindex="0">
+                        <i data-lucide="clipboard-paste"></i>
+                        <p>여기를 클릭한 후 <kbd>Ctrl+V</kbd>로 QR 이미지를 붙여넣으세요</p>
+                        <p class="qr-hint">새 프로젝트에서 QR 이미지 우클릭 → "이미지 복사" 후 붙여넣기</p>
+                    </div>
+                    <div class="qr-counter" id="qr_counter">0 / <span id="qr_total">1</span></div>
+                    <ul class="qr-thumbnails sortable" id="qr_thumbnails"></ul>
+                    <input type="hidden" id="qr_order" name="qr_order" value="[]">
+                </div>
+
             </div>
             <button type="submit" class="submit-btn">
                 <i data-lucide="printer" class="submit-icon"></i> 라벨 만들기
@@ -464,7 +478,9 @@
                 </div>
             </div>
         </div>
-        
+
     </div>
+    <script src="{{ url_for('static', filename='vendor/sortablejs/Sortable.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/qr_paste.js') }}"></script>
 </body>
 </html>
