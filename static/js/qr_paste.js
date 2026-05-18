@@ -79,35 +79,54 @@
     renderThumbnails();
   });
 
-  // ── paste 핸들러 ─────────────────────────────────────────────────────────
-  document.addEventListener('paste', async (e) => {
-    // 텍스트 입력 필드에서 발생한 paste는 무시 (사용자가 텍스트 붙여넣기 중)
-    const tag = document.activeElement?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-    const items = Array.from(e.clipboardData?.items || []);
-    const imageItem = items.find(item => item.type.startsWith('image/'));
-    if (!imageItem) return;
-
-    e.preventDefault();
-    const blob = imageItem.getAsFile();
-    if (!blob) return;
-
+  // ── Blob → state.images 추가 헬퍼 ──────────────────────────────────────
+  async function addFromBlob(blob) {
     const arrayBuffer = await blob.arrayBuffer();
     const hash = await sha1Hex(arrayBuffer);
-
     if (state.images.some(img => img.hash === hash)) {
       showToast('중복된 QR 이미지입니다.');
       return;
     }
-
     const url = URL.createObjectURL(blob);
     state.images.push({ id: state.nextId++, blob, hash, url });
     renderThumbnails();
+  }
+
+  // ── 파일 처리 헬퍼 ────────────────────────────────────────────────────
+  async function addFromFiles(files) {
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        showToast('이미지 파일만 추가할 수 있습니다.');
+        continue;
+      }
+      await addFromBlob(file);
+    }
+  }
+
+  // ── dropzone drag 이벤트 ─────────────────────────────────────────────
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    addFromFiles(e.dataTransfer.files);
   });
 
-  // dropzone 클릭 시 포커스 (paste 핸들러 활성화)
-  dropzone.addEventListener('click', () => dropzone.focus());
+  // ── dropzone 클릭 → 파일 선택 다이얼로그 ────────────────────────────
+  const fileInput = document.getElementById('qr_file_input');
+  dropzone.addEventListener('click', (e) => {
+    if (e.target.closest('input, button')) return;
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', (e) => {
+    addFromFiles(e.target.files);
+    e.target.value = '';
+  });
 
   // ── data URI 입력 처리 ──────────────────────────────────────────────────
   function dataUriToBlob(dataUri) {
@@ -134,15 +153,7 @@
     }
     const blob = dataUriToBlob(raw);
     if (!blob) { showToast('유효하지 않은 data URI입니다.'); return; }
-    const arrayBuffer = await blob.arrayBuffer();
-    const hash = await sha1Hex(arrayBuffer);
-    if (state.images.some(img => img.hash === hash)) {
-      showToast('중복된 QR 이미지입니다.');
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    state.images.push({ id: state.nextId++, blob, hash, url });
-    renderThumbnails();
+    await addFromBlob(blob);
   }
 
   const dataUriInput = document.getElementById('qr_data_uri_input');
