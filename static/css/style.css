@@ -575,8 +575,8 @@ select {
 
 .qr-dropzone:hover,
 .qr-dropzone:focus {
-  border-color: #4a90d9;
-  background: #f0f7ff;
+  border-color: var(--primary-color);
+  background: var(--secondary-bg);
   outline: none;
 }
 
@@ -594,15 +594,6 @@ select {
 .qr-dropzone .qr-hint {
   font-size: 0.78rem;
   color: #999;
-}
-
-.qr-dropzone kbd {
-  background: #eee;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-family: monospace;
-  font-size: 0.85em;
 }
 
 .qr-counter {
