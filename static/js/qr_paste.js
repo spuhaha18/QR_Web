@@ -9,7 +9,6 @@
   const dropzone = document.getElementById('qr_dropzone');
   const thumbnailList = document.getElementById('qr_thumbnails');
   const counterEl = document.getElementById('qr_counter');
-  const totalEl = document.getElementById('qr_total');
   const orderInput = document.getElementById('qr_order');
   const form = document.getElementById('label-form');
 
@@ -30,7 +29,6 @@
 
   function updateCounter() {
     const n = getDocCount();
-    totalEl.textContent = n;
     const m = state.images.length;
     counterEl.textContent = `${m} / ${n}`;
     counterEl.className = 'qr-counter' + (m === n ? ' ok' : m > n ? ' over' : ' under');
