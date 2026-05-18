@@ -320,17 +320,35 @@
                     <div class="section-title">
                         <i data-lucide="qr-code"></i> QR 이미지
                     </div>
-                    <div class="qr-dropzone" id="qr_dropzone" tabindex="0">
-                        <i data-lucide="folder-open"></i>
-                        <p>여기를 클릭하거나 파일을 끌어다 놓으세요</p>
-                        <p class="qr-hint">또는 아래 입력란에 이미지 링크(data URI)를 붙여넣으세요</p>
-                        <input type="file" id="qr_file_input" accept="image/*" multiple hidden>
+                    <p class="section-description">
+                        바인더 권수만큼 QR 이미지를 추가하세요. 추가한 이미지는 드래그로 순서를 바꿀 수 있으며, 캡션의 권 번호가 인쇄 순서가 됩니다.
+                    </p>
+
+                    <div class="qr-input-group">
+                        <label class="qr-input-label">
+                            <i data-lucide="upload"></i> 파일 업로드
+                        </label>
+                        <div class="qr-dropzone" id="qr_dropzone" tabindex="0">
+                            <i data-lucide="folder-open"></i>
+                            <p>여기를 클릭하거나 파일을 끌어다 놓으세요</p>
+                            <p class="qr-hint">PNG · JPG 등 이미지 파일 (여러 개 선택 가능)</p>
+                            <input type="file" id="qr_file_input" accept="image/*" multiple hidden>
+                        </div>
                     </div>
-                    <div class="qr-data-uri-row">
-                        <input type="text" id="qr_data_uri_input" class="qr-data-uri-input"
-                               placeholder="QR 이미지 우클릭 → 이미지 링크 복사 → 여기에 붙여넣고 Enter" />
-                        <button type="button" id="qr_data_uri_btn" class="qr-data-uri-btn">추가</button>
+
+                    <div class="qr-divider"><span>또는</span></div>
+
+                    <div class="qr-input-group">
+                        <label class="qr-input-label" for="qr_data_uri_input">
+                            <i data-lucide="link"></i> 이미지 링크 붙여넣기
+                        </label>
+                        <div class="qr-data-uri-row">
+                            <input type="text" id="qr_data_uri_input" class="qr-data-uri-input"
+                                   placeholder="QR 이미지 우클릭 → '이미지 주소 복사' → 붙여넣고 Enter" />
+                            <button type="button" id="qr_data_uri_btn" class="qr-data-uri-btn">추가</button>
+                        </div>
                     </div>
+
                     <div class="qr-counter" id="qr_counter">0 / 1</div>
                     <ul class="qr-thumbnails sortable" id="qr_thumbnails"></ul>
                     <input type="hidden" id="qr_order" name="qr_order" value="[]">

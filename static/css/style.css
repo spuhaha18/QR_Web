@@ -560,6 +560,53 @@ select {
     }
 }
 
+.section-description {
+  margin: -4px 0 16px;
+  font-size: 0.85rem;
+  color: var(--text-muted, #666);
+  line-height: 1.5;
+}
+
+.qr-input-group {
+  margin-bottom: 16px;
+}
+
+.qr-input-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.qr-input-label svg {
+  width: 16px;
+  height: 16px;
+}
+
+.qr-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 18px 0;
+  color: var(--text-muted, #888);
+  font-size: 0.8rem;
+}
+
+.qr-divider::before,
+.qr-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color, #ddd);
+}
+
+.qr-divider span {
+  padding: 0 12px;
+}
+
 /* ── QR 파일 업로드 영역 ──────────────────────────────────────────── */
 
 .qr-dropzone {
@@ -675,7 +722,6 @@ select {
 .qr-data-uri-row {
   display: flex;
   gap: 6px;
-  margin-top: 8px;
 }
 
 .qr-data-uri-input {
