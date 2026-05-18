@@ -63,7 +63,7 @@ def handle_errors(f):
             client_ip, _ = get_client_info()
             logger.error(f"Error in {f.__name__} for client {client_ip}: {str(e)}", exc_info=True)
             
-            if request.is_json:
+            if request.is_json or request.path.startswith('/api/'):
                 return jsonify({'error': '서버 오류가 발생했습니다.'}), 500
             else:
                 flash("서버 오류가 발생했습니다.", "error")
