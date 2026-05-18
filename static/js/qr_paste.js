@@ -60,11 +60,15 @@
 
   // ── qr_order hidden input 동기화 ─────────────────────────────────────────
   function syncOrder() {
-    const domIds = [...thumbnailList.querySelectorAll('li[data-id]')]
-      .map(el => parseInt(el.dataset.id, 10));
+    const lis = [...thumbnailList.querySelectorAll('li[data-id]')];
+    const domIds = lis.map(el => parseInt(el.dataset.id, 10));
     // DOM 순서 → 원본 state 배열의 인덱스로 변환
     const order = domIds.map(id => state.images.findIndex(img => img.id === id));
     orderInput.value = JSON.stringify(order);
+    lis.forEach((li, i) => {
+      const label = li.querySelector('.qr-thumb-label');
+      if (label) label.textContent = `${i + 1}권`;
+    });
   }
 
   // ── SortableJS 초기화 ────────────────────────────────────────────────────
