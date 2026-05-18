@@ -288,6 +288,12 @@ class ExcelLabelGenerator:
         """QR 코드를 시트에 추가한다. qr_image_paths가 None이면 자동 생성, 아니면 paste 모드."""
         logger.info(f"Applying QR codes to {len(wb.worksheets)} sheets "
                     f"({'paste' if qr_image_paths else 'auto'} mode)")
+
+        if qr_image_paths is not None and len(qr_image_paths) < len(wb.worksheets):
+            raise ValueError(
+                f"qr_image_paths has {len(qr_image_paths)} paths but {len(wb.worksheets)} sheets expected"
+            )
+
         img_files = []
 
         binder_configs = {
