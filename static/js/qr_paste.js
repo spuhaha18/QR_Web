@@ -109,6 +109,57 @@
   // dropzone 클릭 시 포커스 (paste 핸들러 활성화)
   dropzone.addEventListener('click', () => dropzone.focus());
 
+  // ── data URI 입력 처리 ──────────────────────────────────────────────────
+  function dataUriToBlob(dataUri) {
+    const parts = dataUri.trim().split(',');
+    if (parts.length < 2) return null;
+    const header = parts[0];
+    const base64 = parts[1];
+    const mimeMatch = header.match(/data:([^;]+)/);
+    if (!mimeMatch) return null;
+    try {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mimeMatch[1] });
+    } catch {
+      return null;
+    }
+  }
+
+  async function addFromDataUri(raw) {
+    if (!raw.startsWith('data:image/')) {
+      showToast('data:image/... 형식의 URI만 지원합니다.');
+      return;
+    }
+    const blob = dataUriToBlob(raw);
+    if (!blob) { showToast('유효하지 않은 data URI입니다.'); return; }
+    const arrayBuffer = await blob.arrayBuffer();
+    const hash = await sha1Hex(arrayBuffer);
+    if (state.images.some(img => img.hash === hash)) {
+      showToast('중복된 QR 이미지입니다.');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    state.images.push({ id: state.nextId++, blob, hash, url });
+    renderThumbnails();
+  }
+
+  const dataUriInput = document.getElementById('qr_data_uri_input');
+  const dataUriBtn = document.getElementById('qr_data_uri_btn');
+
+  async function handleDataUriSubmit() {
+    const val = dataUriInput.value.trim();
+    if (!val) return;
+    await addFromDataUri(val);
+    dataUriInput.value = '';
+  }
+
+  dataUriBtn.addEventListener('click', handleDataUriSubmit);
+  dataUriInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleDataUriSubmit(); }
+  });
+
   // doc_type 변경 시 카운터 갱신 (index.html의 selectDocType 호출 후)
   document.querySelectorAll('[data-value][onclick*="selectDocType"]').forEach(btn => {
     btn.addEventListener('click', () => setTimeout(updateCounter, 0));

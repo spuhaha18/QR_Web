@@ -680,3 +680,40 @@ select {
   75%  { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* ── data URI 입력 행 ───────────────────────────────────────────────── */
+
+.qr-data-uri-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.qr-data-uri-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: #444;
+  min-width: 0;
+}
+
+.qr-data-uri-input:focus {
+  outline: none;
+  border-color: #4a90d9;
+}
+
+.qr-data-uri-btn {
+  padding: 6px 14px;
+  background: #4a90d9;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qr-data-uri-btn:hover { background: #357abd; }
