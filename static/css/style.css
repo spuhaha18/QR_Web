@@ -560,7 +560,7 @@ select {
     }
 }
 
-/* ── QR Paste 영역 ──────────────────────────────────────────────── */
+/* ── QR 파일 업로드 영역 ──────────────────────────────────────────── */
 
 .qr-dropzone {
   border: 2px dashed #999;
@@ -577,6 +577,12 @@ select {
 .qr-dropzone:focus {
   border-color: #4a90d9;
   background: #f0f7ff;
+  outline: none;
+}
+
+.qr-dropzone.dragover {
+  border-color: var(--primary-color);
+  background: var(--secondary-bg);
   outline: none;
 }
 
