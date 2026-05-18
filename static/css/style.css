@@ -670,28 +670,6 @@ select {
 /* SortableJS 드래그 중 고스트 */
 .sortable-ghost { opacity: 0.3; }
 
-/* 토스트 */
-.qr-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #323232;
-  color: #fff;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 0.88rem;
-  z-index: 9999;
-  animation: fadeInOut 2.5s forwards;
-}
-
-@keyframes fadeInOut {
-  0%   { opacity: 0; transform: translateX(-50%) translateY(10px); }
-  15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
-  75%  { opacity: 1; }
-  100% { opacity: 0; }
-}
-
 /* ── data URI 입력 행 ───────────────────────────────────────────────── */
 
 .qr-data-uri-row {

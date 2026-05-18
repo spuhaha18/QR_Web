@@ -95,7 +95,7 @@
     const arrayBuffer = await blob.arrayBuffer();
     const hash = fingerprint(arrayBuffer);
     if (state.images.some(img => img.hash === hash)) {
-      showToast('중복된 QR 이미지입니다.');
+      showMessage('중복된 QR 이미지입니다.', 'error');
       return;
     }
     const url = URL.createObjectURL(blob);
@@ -110,7 +110,7 @@
       if (!file.type.startsWith('image/')) { skipped++; continue; }
       await addFromBlob(file);
     }
-    if (skipped > 0) showToast(`이미지가 아닌 파일 ${skipped}개는 건너뜁니다.`);
+    if (skipped > 0) showMessage(`이미지가 아닌 파일 ${skipped}개는 건너뜁니다.`, 'error');
   }
 
   // ── dropzone drag 이벤트 ─────────────────────────────────────────────
@@ -160,11 +160,11 @@
 
   async function addFromDataUri(raw) {
     if (!raw.startsWith('data:image/')) {
-      showToast('data:image/... 형식의 URI만 지원합니다.');
+      showMessage('data:image/... 형식의 URI만 지원합니다.', 'error');
       return;
     }
     const blob = dataUriToBlob(raw);
-    if (!blob) { showToast('유효하지 않은 data URI입니다.'); return; }
+    if (!blob) { showMessage('유효하지 않은 data URI입니다.', 'error'); return; }
     await addFromBlob(blob);
   }
 
@@ -236,15 +236,6 @@
       hideLoading();
     }
   });
-
-  // ── 토스트 메시지 ─────────────────────────────────────────────────────────
-  function showToast(msg) {
-    const t = document.createElement('div');
-    t.className = 'qr-toast';
-    t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2500);
-  }
 
   // 초기 카운터
   updateCounter();
