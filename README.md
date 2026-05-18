@@ -1,4 +1,4 @@
-# QR_Web v1.1.0
+# QR_Web v2.1.0
 
 연구소 바인더 라벨 제작을 위한 웹 애플리케이션입니다. 직관적인 사용자 인터페이스를 통해 복잡한 과제 문서 및 기기 문서의 라벨을 표준화된 포맷으로 생성하고, Excel 파일로 손쉽게 출력할 수 있습니다.
 
@@ -8,6 +8,9 @@
 
 - **모던 UI/UX**: Pristine Lab 테마, Deep Blue 브랜드 컬러, 다크 모드 연동 및 세련된 Toast 알림 지원
 - **QR 코드 생성**: 입력된 정보(마스터코드 등)를 기반으로 자동 QR 코드 생성
+- **QR 이미지 업로드**: 파일 선택 또는 드래그&드롭으로 QR 이미지 일괄 업로드
+- **썸네일 미리보기**: 업로드된 QR 이미지를 썸네일로 표시하며 `<N>권` 수량 라벨 제공
+- **순서 재배치**: SortableJS 기반 드래그앤드롭으로 QR 순서 자유 조정
 - **표준 라벨 생성**: 연구소 바인더 규격에 맞는 폼 데이터 처리
 - **Excel 출력**: 생성된 라벨 데이터를 규격화된 Excel 파일(.xlsx)로 내보내기
 - **웹 인터페이스**: 반응형 디자인 및 직관적인 입력 폼 (Lucide SVG 아이콘 적용)
@@ -31,8 +34,9 @@ QR_Web/
 │   ├── logs.html             # 시스템 로그 뷰어
 │   └── api_docs.html         # API 명세서
 ├── static/                   # 정적 파일
-│   ├── css/                  # 스타일시트 (style.css)
-│   └── img/                  # 로고 및 이미지 파일
+│   ├── css/style.css         # 스타일시트
+│   ├── js/qr_paste.js        # QR 업로드·드롭존·순서 정렬 UI 로직
+│   └── vendor/sortablejs/    # SortableJS (드래그앤드롭 라이브러리)
 ├── uploads/                  # 생성된 파일 임시 저장소
 ├── logs/                     # 로그 파일
 └── pyproject.toml / uv.lock  # uv 패키지 환경
@@ -69,7 +73,7 @@ pip install -r requirements.txt
 ```bash
 git clone https://github.com/spuhaha18/QR_Web.git
 cd QR_Web
-docker build -t qr-web:v1.1 .
+docker build -t qr-web:v2.1 .
 ```
 
 #### 방법 4: Docker Compose 사용
@@ -94,7 +98,7 @@ python app.py
 
 ### Docker 환경에서 실행
 ```bash
-docker run -d --name qr-web-app -p 5000:5000 qr-web:v1.1
+docker run -d --name qr-web-app -p 5000:5000 qr-web:v2.1
 ```
 
 ---
@@ -105,8 +109,10 @@ docker run -d --name qr-web-app -p 5000:5000 qr-web:v1.1
 
 ### 주요 REST API 엔드포인트
 - **GET** `/api/health` - 서버 상태 확인
-- **POST** `/api/create_label` - 라벨 생성 및 Excel 파일 반환
+- **POST** `/create_label` - 웹 폼 기반 라벨 생성 (QR 이미지 파일 업로드 포함)
+- **POST** `/api/create_label` - API 기반 라벨 생성 및 Excel 파일 반환
 - **GET** `/api/qr_image/<text>` - QR 코드 이미지(.png) 반환
+- **POST** `/api/qr_image_base64` - Base64 인코딩 QR 이미지 반환
 - **GET** `/api/logs` - 서버 애플리케이션 로그 조회
 
 ### POST `/api/create_label` 요청 예시 (기기 문서)
@@ -139,6 +145,15 @@ curl -X POST http://localhost:5000/api/create_label \
 ---
 
 ## 📋 버전 히스토리
+
+### v2.1.0 (2026-05-18)
+**QR 파일 업로드·드롭존·썸네일 UX 전면 개선**
+- 📂 **파일 업로드/드롭존**: QR 이미지를 파일 선택 또는 드래그&드롭으로 업로드 (기존 붙여넣기 방식 대체)
+- 🖼 **썸네일 수량 라벨**: 업로드된 QR 이미지 썸네일 하단에 `<N>권` 라벨 표시
+- ↕️ **드래그앤드롭 순서 재배치**: SortableJS 내장으로 QR 이미지 순서 자유 조정
+- 🎨 **토스트 알림 테마화**: `showMessage` 유틸로 통합하여 일관된 스타일 적용
+- 🔗 **Data URI 입력 방식 추가**: 우클릭 → 이미지 링크 복사 후 붙여넣기 지원
+- 🐛 **QA 버그 수정**: syncOrder 중복 카운트(ISSUE-001), totalEl detached span(ISSUE-002) 해결
 
 ### v1.1.0 (2026-05-11)
 **UI/UX 전면 리디자인 및 시스템 안정화**
