@@ -12,12 +12,16 @@
   const orderInput = document.getElementById('qr_order');
   const form = document.getElementById('label-form');
 
-  // ── SHA-1 해시 (Web Crypto API) ─────────────────────────────────────────
-  async function sha1Hex(arrayBuffer) {
-    const hashBuf = await crypto.subtle.digest('SHA-1', arrayBuffer);
-    return Array.from(new Uint8Array(hashBuf))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+  // ── 중복 체크용 핑거프린트 (crypto.subtle 미요구) ──────────────────────
+  function fingerprint(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    const len = bytes.length;
+    let h = len;
+    // djb2 변형: 크기 + 앞 256 + 뒤 256 바이트 샘플
+    const sample = Math.min(256, len);
+    for (let i = 0; i < sample; i++) h = (Math.imul(h, 31) + bytes[i]) >>> 0;
+    for (let i = Math.max(0, len - sample); i < len; i++) h = (Math.imul(h, 31) + bytes[i]) >>> 0;
+    return `${len}_${h.toString(16)}`;
   }
 
   // ── 카운터 갱신 ──────────────────────────────────────────────────────────
@@ -42,8 +46,11 @@
       li.className = 'qr-thumb-item';
       li.dataset.id = id;
       li.innerHTML = `
-        <img src="${url}" alt="QR ${id}" />
-        <button type="button" class="qr-remove-btn" data-id="${id}">×</button>
+        <div class="qr-thumb-image">
+          <img src="${url}" alt="QR ${id}" />
+          <button type="button" class="qr-remove-btn" data-id="${id}">×</button>
+        </div>
+        <span class="qr-thumb-label"></span>
       `;
       thumbnailList.appendChild(li);
     });
@@ -82,7 +89,7 @@
   // ── Blob → state.images 추가 헬퍼 ──────────────────────────────────────
   async function addFromBlob(blob) {
     const arrayBuffer = await blob.arrayBuffer();
-    const hash = await sha1Hex(arrayBuffer);
+    const hash = fingerprint(arrayBuffer);
     if (state.images.some(img => img.hash === hash)) {
       showToast('중복된 QR 이미지입니다.');
       return;
