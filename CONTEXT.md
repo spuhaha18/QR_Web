@@ -13,13 +13,13 @@ _Avoid_: 부, 문서, 카피
 _Avoid_: 페이지, 워크시트(코드 외 문맥에서)
 
 **QR 이미지 (QR image)**:
-외부 프로젝트가 생성한 PNG. 새 프로젝트는 `<img src="data:image/png;base64,...">` 형태로 렌더링한다. 사용자는 새 프로젝트에서 QR 이미지를 **우클릭 "이미지 복사"** 후 이 앱에 paste 한다. 권 i의 시트에 1개씩 삽입된다. 이 앱은 페이로드를 디코딩하지 않고 이미지로만 사용한다.
+외부 프로젝트가 생성한 PNG. 새 프로젝트는 `<img src="data:image/png;base64,...">` 형태로 렌더링한다. 사용자는 새 프로젝트에서 QR 이미지를 파일로 저장하여 dropzone에 드래그&드롭하거나, **우클릭 "이미지 링크 복사"** 후 data URI 입력란에 붙여넣는다. 권 i의 시트에 1개씩 삽입된다. 이 앱은 페이로드를 디코딩하지 않고 이미지로만 사용한다.
 _Avoid_: QR 코드 (코드라는 표현은 페이로드 의미가 섞이므로 라벨 흐름에서는 "QR 이미지"로 통일)
 
 **QR 이미지 입력 (QR image input)**:
 라벨 앱이 QR PNG를 받는 두 가지 입력 경로.
 - **파일 입력**: dropzone 드래그&드롭 또는 클릭 → 파일 선택 다이얼로그. `image/*` MIME 필터, SHA-1 중복 거부.
-- **data URI 텍스트 입력**: `data:image/...;base64,...` 텍스트를 입력란에 붙여넣고 Enter → Blob 복원 후 동일 검사 적용.
+- **data URI 텍스트 입력**: `data:image/...;base64,...` 텍스트를 입력란에 붙여넣고 Enter 또는 '추가' 버튼 → Blob 복원 후 동일 검사 적용.
 두 경로 모두 `state.images = { id, blob, hash, url }[]`에 수렴한다.
 _Avoid_: 이미지 클립보드 paste(`clipboardData.items`의 `image/*`), URL fetch (서버/클라이언트 모두)
 _이유_: 외부 사내 시스템 보안 정책으로 클립보드 image MIME 차단됨

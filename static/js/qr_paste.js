@@ -1,4 +1,4 @@
-// qr_paste.js — paste-mode QR 이미지 수집 + SortableJS 순서 관리 + FormData fetch 제출
+// qr_paste.js — QR 이미지 수집 (파일 드롭·선택/data URI) + SortableJS 순서 관리 + FormData fetch 제출
 
 (function () {
   'use strict';
@@ -194,7 +194,7 @@
     syncOrder();
 
     const formData = new FormData(form);
-    // paste된 Blob을 File로 변환하여 추가
+    // QR Blob을 File로 변환하여 추가
     state.images.forEach((img, i) => {
       formData.append('qr_images', new File([img.blob], `qr_${i}.png`, { type: 'image/png' }));
     });
