@@ -548,14 +548,135 @@ select {
     .container { padding: 24px; }
     h1 { font-size: 1.8rem; }
     .theme-toggle { top: 16px; right: 16px; }
-    
+
     .form-row { grid-template-columns: 1fr; gap: 0; }
-    
+
     .option-group:has([onclick*="selectBinderSize"]) {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .contact-details {
         grid-template-columns: 1fr;
     }
+}
+
+/* ── QR Paste 영역 ──────────────────────────────────────────────── */
+
+.qr-dropzone {
+  border: 2px dashed #999;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  color: #666;
+  transition: border-color 0.2s, background 0.2s;
+  user-select: none;
+}
+
+.qr-dropzone:hover,
+.qr-dropzone:focus {
+  border-color: #4a90d9;
+  background: #f0f7ff;
+  outline: none;
+}
+
+.qr-dropzone p {
+  margin: 6px 0;
+  font-size: 0.9rem;
+}
+
+.qr-dropzone .qr-hint {
+  font-size: 0.78rem;
+  color: #999;
+}
+
+.qr-dropzone kbd {
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.qr-counter {
+  margin: 8px 0 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #888;
+}
+
+.qr-counter.ok   { color: #2e7d32; }
+.qr-counter.over { color: #c62828; }
+.qr-counter.under { color: #e65100; }
+
+.qr-thumbnails {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.qr-thumb-item {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  cursor: grab;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.qr-thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.qr-remove-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-remove-btn:hover { background: #c62828; }
+
+/* SortableJS 드래그 중 고스트 */
+.sortable-ghost { opacity: 0.3; }
+
+/* 토스트 */
+.qr-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #323232;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  z-index: 9999;
+  animation: fadeInOut 2.5s forwards;
+}
+
+@keyframes fadeInOut {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
 }
