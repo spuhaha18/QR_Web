@@ -94,13 +94,12 @@
 
   // ── 파일 처리 헬퍼 ────────────────────────────────────────────────────
   async function addFromFiles(files) {
+    let skipped = 0;
     for (const file of files) {
-      if (!file.type.startsWith('image/')) {
-        showToast('이미지 파일만 추가할 수 있습니다.');
-        continue;
-      }
+      if (!file.type.startsWith('image/')) { skipped++; continue; }
       await addFromBlob(file);
     }
+    if (skipped > 0) showToast(`이미지가 아닌 파일 ${skipped}개는 건너뜁니다.`);
   }
 
   // ── dropzone drag 이벤트 ─────────────────────────────────────────────
@@ -108,13 +107,15 @@
     e.preventDefault();
     dropzone.classList.add('dragover');
   });
-  dropzone.addEventListener('dragleave', () => {
-    dropzone.classList.remove('dragover');
+  dropzone.addEventListener('dragleave', (e) => {
+    if (!dropzone.contains(e.relatedTarget)) {
+      dropzone.classList.remove('dragover');
+    }
   });
-  dropzone.addEventListener('drop', (e) => {
+  dropzone.addEventListener('drop', async (e) => {
     e.preventDefault();
     dropzone.classList.remove('dragover');
-    addFromFiles(e.dataTransfer.files);
+    await addFromFiles(e.dataTransfer.files);
   });
 
   // ── dropzone 클릭 → 파일 선택 다이얼로그 ────────────────────────────
@@ -123,8 +124,8 @@
     if (e.target.closest('input, button')) return;
     fileInput.click();
   });
-  fileInput.addEventListener('change', (e) => {
-    addFromFiles(e.target.files);
+  fileInput.addEventListener('change', async (e) => {
+    await addFromFiles(e.target.files);
     e.target.value = '';
   });
 
