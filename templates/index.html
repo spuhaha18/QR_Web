@@ -161,117 +161,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            updateFormFields(); 
+            updateFormFields();
             lucide.createIcons();
-            
-            const form = document.querySelector('form');
-            let formSubmitted = false;
-            let downloadStarted = false;
-            
-            form.addEventListener('submit', function(e) {
-                if (!validateForm()) {
-                    e.preventDefault();
-                    return false;
-                }
-                
-                showLoading();
-                formSubmitted = true;
-                downloadStarted = false;
-                
-                const downloadTimer = setTimeout(function() {
-                    if (formSubmitted && !downloadStarted) {
-                        hideLoading();
-                        showErrorMessage('라벨 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
-                        formSubmitted = false;
-                    }
-                }, 5000);
-                
-                const checkDownload = setInterval(function() {
-                    const errorAlert = document.querySelector('.toast-error');
-                    if (errorAlert) {
-                        clearInterval(checkDownload);
-                        clearTimeout(downloadTimer);
-                        hideLoading();
-                        formSubmitted = false;
-                        downloadStarted = false;
-                        return;
-                    }
-                }, 500);
-                
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                document.body.appendChild(iframe);
-                
-                const originalCookie = document.cookie;
-                const cookieCheckInterval = setInterval(function() {
-                    if (document.cookie !== originalCookie && document.cookie.includes('download_complete')) {
-                        clearInterval(cookieCheckInterval);
-                        clearInterval(checkDownload);
-                        clearTimeout(downloadTimer);
-                        
-                        downloadStarted = true;
-                        hideLoading();
-                        showSuccessMessage();
-                        formSubmitted = false;
-                        downloadStarted = false;
-                        
-                        document.cookie = 'download_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                        document.body.removeChild(iframe);
-                        return;
-                    }
-                }, 100);
-                
-                let focusChangeTimeout;
-                const handleFocusChange = function() {
-                    clearTimeout(focusChangeTimeout);
-                    focusChangeTimeout = setTimeout(function() {
-                        if (formSubmitted && !downloadStarted) {
-                            setTimeout(function() {
-                                if (formSubmitted && !downloadStarted) {
-                                    clearInterval(cookieCheckInterval);
-                                    clearInterval(checkDownload);
-                                    clearTimeout(downloadTimer);
-                                    
-                                    downloadStarted = true;
-                                    hideLoading();
-                                    showSuccessMessage();
-                                    formSubmitted = false;
-                                    downloadStarted = false;
-                                    
-                                    if(iframe.parentNode) document.body.removeChild(iframe);
-                                    window.removeEventListener('focus', handleFocusChange);
-                                    window.removeEventListener('blur', handleFocusChange);
-                                }
-                            }, 500);
-                        }
-                    }, 100);
-                };
-                
-                window.addEventListener('focus', handleFocusChange);
-                window.addEventListener('blur', handleFocusChange);
-            });
-            
-            window.addEventListener('focus', function() {
-                if (formSubmitted && downloadStarted) {
-                    setTimeout(function() {
-                        hideLoading();
-                        showSuccessMessage();
-                        formSubmitted = false;
-                        downloadStarted = false;
-                    }, 500);
-                }
-            });
-            
-            document.addEventListener('visibilitychange', function() {
-                if (!document.hidden && formSubmitted && downloadStarted) {
-                    setTimeout(function() {
-                        hideLoading();
-                        showSuccessMessage();
-                        formSubmitted = false;
-                        downloadStarted = false;
-                    }, 500);
-                }
-            });
         });
     </script>
 </head>
@@ -316,7 +207,7 @@
             </a>
         </div>
 
-        <form action="/create_label" method="post">
+        <form action="/create_label" method="post" enctype="multipart/form-data" id="label-form">
             <div class="form-sections">
                 <div class="form-section">
                     <div class="section-title">
@@ -425,6 +316,44 @@
                     </div>
                 </div>
 
+                <div class="form-section" id="qr_section">
+                    <div class="section-title">
+                        <i data-lucide="qr-code"></i> QR 이미지
+                    </div>
+                    <p class="section-description">
+                        바인더 권수만큼 QR 이미지를 추가하세요. 추가한 이미지는 드래그로 순서를 바꿀 수 있으며, 캡션의 권 번호가 인쇄 순서가 됩니다.
+                    </p>
+
+                    <div class="qr-input-group">
+                        <label class="qr-input-label">
+                            <i data-lucide="upload"></i> 파일 업로드
+                        </label>
+                        <div class="qr-dropzone" id="qr_dropzone" tabindex="0">
+                            <i data-lucide="folder-open"></i>
+                            <p>여기를 클릭하거나 파일을 끌어다 놓으세요</p>
+                            <p class="qr-hint">PNG · JPG 등 이미지 파일 (여러 개 선택 가능)</p>
+                            <input type="file" id="qr_file_input" accept="image/*" multiple hidden>
+                        </div>
+                    </div>
+
+                    <div class="qr-divider"><span>또는</span></div>
+
+                    <div class="qr-input-group">
+                        <label class="qr-input-label" for="qr_data_uri_input">
+                            <i data-lucide="link"></i> 이미지 링크 붙여넣기
+                        </label>
+                        <div class="qr-data-uri-row">
+                            <input type="text" id="qr_data_uri_input" class="qr-data-uri-input"
+                                   placeholder="QR 이미지 우클릭 → '이미지 주소 복사' → 붙여넣고 Enter" />
+                            <button type="button" id="qr_data_uri_btn" class="qr-data-uri-btn">추가</button>
+                        </div>
+                    </div>
+
+                    <div class="qr-counter" id="qr_counter">0 / 1</div>
+                    <ul class="qr-thumbnails sortable" id="qr_thumbnails"></ul>
+                    <input type="hidden" id="qr_order" name="qr_order" value="[]">
+                </div>
+
             </div>
             <button type="submit" class="submit-btn">
                 <i data-lucide="printer" class="submit-icon"></i> 라벨 만들기
@@ -464,7 +393,9 @@
                 </div>
             </div>
         </div>
-        
+
     </div>
+    <script src="{{ url_for('static', filename='vendor/sortablejs/Sortable.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/qr_paste.js') }}"></script>
 </body>
 </html>

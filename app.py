@@ -1,18 +1,22 @@
 """
 Optimized Flask application for QR Web Label Generator
 """
+import json
 import logging
 import os
 import io
 import base64
 import time
+import tempfile
+import shutil
 from datetime import datetime
 from flask import Flask, render_template, request, send_file, redirect, url_for, flash, jsonify, make_response
 
 # 로컬 모듈
 from utils import (
     get_client_info, log_client_access, create_directory_if_not_exists,
-    delete_file_later, validate_and_clean_input, safe_int_conversion
+    delete_file_later, validate_and_clean_input, safe_int_conversion,
+    validate_qr_image_bytes, delete_dir_later
 )
 from qr_generator import default_qr_generator
 from excel_generator import ExcelLabelGenerator
@@ -147,62 +151,98 @@ def index():
 @handle_errors
 @monitor_performance("web_label_creation")
 def create_label():
-    """라벨 생성 (웹 인터페이스)"""
-    client_ip, user_agent = get_client_info()
+    """라벨 생성 (웹 인터페이스) — paste 모드."""
+    client_ip, _ = get_client_info()
     logger.info(f"Create label request received from {client_ip}")
-    
-    # 기본 데이터 검증
+
+    # 기본 폼 필드 검증
     doc_type = request.form.get('doc_type')
     try:
         binder_size = int(request.form.get('binder_size'))
     except (ValueError, TypeError):
-        flash("잘못된 바인더 크기입니다.", "error")
-        logger.warning(f"Invalid binder size from client {client_ip}")
-        return redirect(url_for('index'))
-    
-    logger.info(f"Request details - Document type: {doc_type}, Binder size: {binder_size}cm")
-    
-    # 문서 타입 검증
+        return jsonify({'error': '잘못된 바인더 크기입니다.'}), 400
+
     if not validate_document_type(doc_type):
-        flash("잘못된 문서 종류입니다.", "error")
-        logger.warning(f"Invalid document type: {doc_type} from client {client_ip}")
-        return redirect(url_for('index'))
-    
-    # 바인더 크기 검증
+        return jsonify({'error': '잘못된 문서 종류입니다.'}), 400
+
     if not validate_binder_size(binder_size, doc_type):
-        flash("과제 문서의 경우 3cm 미만 바인더 크기를 선택할 수 없습니다.", "error")
-        logger.warning(f"Invalid binder size selected - Client: {client_ip}, "
-                      f"Doc type: {doc_type}, Binder size: {binder_size}cm")
-        return redirect(url_for('index'))
-    
-    # 필수 필드 검증
+        return jsonify({'error': '과제 문서의 경우 3cm 미만 바인더 크기를 선택할 수 없습니다.'}), 400
+
     is_valid, missing_field = validate_required_fields(request.form, doc_type)
     if not is_valid:
-        flash("모든 필드를 채워주세요.", "error")
-        logger.warning(f"Missing required field: {missing_field} - Client: {client_ip}")
-        return redirect(url_for('index'))
-    
-    # 데이터 처리
-    data = process_form_data(request.form, doc_type)
-    
-    # 라벨 생성
-    logger.info(f"Starting label generation process for client {client_ip}")
-    filepath, filename = excel_generator.create_label_excel(doc_type, binder_size, data)
-    
-    # 파일 정보 로깅
-    from utils import get_file_size_safe
-    file_size = get_file_size_safe(filepath)
-    logger.info(f"Label generation completed - File: {filename}, Size: {file_size} bytes")
-    
-    # 파일 삭제 예약
+        return jsonify({'error': f'필수 필드가 누락되었습니다: {missing_field}'}), 400
+
+    # doc_count 추출
+    count_key = 'eq_doc_count' if doc_type == '1' else 'pjt_doc_count'
+    try:
+        doc_count = int(request.form.get(count_key, 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': '권수가 올바르지 않습니다.'}), 400
+
+    # QR 이미지 파일 수신
+    qr_files = request.files.getlist('qr_images')
+
+    # qr_order 수신 + 파싱
+    try:
+        qr_order = json.loads(request.form.get('qr_order', '[]'))
+        if not isinstance(qr_order, list):
+            raise ValueError
+    except (ValueError, TypeError):
+        return jsonify({'error': 'qr_order 형식이 올바르지 않습니다.'}), 400
+
+    # ── 검증 ──
+    if len(qr_files) != doc_count:
+        return jsonify({
+            'error': f'QR 이미지 수가 권수와 다릅니다 (받음: {len(qr_files)}, 권수: {doc_count})'
+        }), 400
+
+    if len(qr_files) > config.MAX_QR_FILES:
+        return jsonify({'error': f'QR 이미지는 최대 {config.MAX_QR_FILES}개까지 허용됩니다.'}), 400
+
+    if len(qr_order) != doc_count:
+        return jsonify({'error': 'qr_order 길이가 권수와 다릅니다.'}), 400
+
+    if sorted(qr_order) != list(range(doc_count)):
+        return jsonify({'error': 'qr_order에 중복이나 범위 초과 인덱스가 있습니다.'}), 400
+
+    # 각 파일 크기 + PNG 검증
+    file_bytes_list = []
+    for f in qr_files:
+        raw = f.read()
+        if len(raw) > config.MAX_QR_FILE_SIZE:
+            return jsonify({'error': f'QR 이미지 크기가 2MB를 초과합니다: {f.filename}'}), 400
+        if not validate_qr_image_bytes(raw):
+            return jsonify({'error': f'유효하지 않은 PNG 이미지입니다: {f.filename}'}), 400
+        file_bytes_list.append(raw)
+
+    # qr_order 순서대로 재정렬
+    ordered_bytes = [file_bytes_list[i] for i in qr_order]
+
+    # 임시 디렉토리에 저장
+    tmp_dir = tempfile.mkdtemp(prefix='qr_paste_')
+    qr_paths = []
+    try:
+        for idx, raw in enumerate(ordered_bytes):
+            path = os.path.join(tmp_dir, f'qr_{idx}.png')
+            with open(path, 'wb') as fh:
+                fh.write(raw)
+            qr_paths.append(path)
+
+        data = process_form_data(request.form, doc_type)
+        filepath, filename = excel_generator.create_label_excel(
+            doc_type, binder_size, data, qr_image_paths=qr_paths
+        )
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    # 엑셀 파일 전송 후 임시 디렉토리 정리
     delete_file_later(filepath, DELETE_DELAY)
-    logger.info(f"File deletion scheduled for {filename} ({DELETE_DELAY} seconds delay)")
-    
-    # 다운로드 응답
+    delete_dir_later(tmp_dir, delay=60)
+
+    logger.info(f"Paste-mode label generated: {filename} for {client_ip}")
     response = make_response(send_file(filepath, as_attachment=True, download_name=filename))
     response.set_cookie('download_complete', 'true', max_age=10)
-    logger.info(f"File download initiated for client {client_ip} - File: {filename}")
-    
     return response
 
 @app.route('/api/create_label', methods=['POST'])
