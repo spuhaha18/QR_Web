@@ -195,32 +195,29 @@
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    if (typeof validateForm === 'function' && !validateForm()) return;
+
     const n = getDocCount();
     if (state.images.length !== n) {
-      alert(`QR 이미지 수(${state.images.length})가 권수(${n})와 다릅니다. 맞춰주세요.`);
+      showErrorMessage(`QR 이미지 수(${state.images.length})가 권수(${n})와 다릅니다.`);
       return;
     }
 
-    // qr_order를 현재 DOM 순서 기준 인덱스 배열로 최종 갱신
     syncOrder();
 
     const formData = new FormData(form);
-    // QR Blob을 File로 변환하여 추가
     state.images.forEach((img, i) => {
       formData.append('qr_images', new File([img.blob], `qr_${i}.png`, { type: 'image/png' }));
     });
 
-    const submitBtn = form.querySelector('.submit-btn');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '생성 중...'; }
-
+    showLoading();
     try {
       const resp = await fetch('/create_label', { method: 'POST', body: formData });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: '서버 오류가 발생했습니다.' }));
-        alert(err.error || '서버 오류가 발생했습니다.');
+        showErrorMessage(err.error || '서버 오류가 발생했습니다.');
         return;
       }
-      // 엑셀 다운로드 트리거
       const disposition = resp.headers.get('Content-Disposition') || '';
       const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
       const filename = match ? match[1].replace(/['"]/g, '') : '라벨.xlsx';
@@ -232,10 +229,11 @@
       a.click();
       a.remove();
       URL.revokeObjectURL(a.href);
+      showSuccessMessage();
     } catch (err) {
-      alert('요청 중 오류가 발생했습니다: ' + err.message);
+      showErrorMessage('요청 중 오류가 발생했습니다: ' + err.message);
     } finally {
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '라벨 만들기'; }
+      hideLoading();
     }
   });
 
