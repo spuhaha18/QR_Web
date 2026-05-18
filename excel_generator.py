@@ -284,61 +284,58 @@ class ExcelLabelGenerator:
             
             destination["B4"].font = self.FONT_TITLE
     
-    def _apply_qr_codes(self, wb, doc_type, binder_size, base_filename):
-        """QR 코드를 생성하고 시트에 추가합니다."""
-        logger.info(f"Starting QR code generation for {len(wb.worksheets)} sheets")
+    def _apply_qr_codes(self, wb, doc_type, binder_size, base_filename, qr_image_paths=None):
+        """QR 코드를 시트에 추가한다. qr_image_paths가 None이면 자동 생성, 아니면 paste 모드."""
+        logger.info(f"Applying QR codes to {len(wb.worksheets)} sheets "
+                    f"({'paste' if qr_image_paths else 'auto'} mode)")
         img_files = []
-        
-        # 바인더 크기별 설정
+
         binder_configs = {
             7: {'column_width': 1.875, 'cell_pos': 'E9' if doc_type == '1' else 'E8'},
             5: {'column_width': 1.25, 'cell_pos': 'D9' if doc_type == '1' else 'D8'},
-            3: {'column_width': 1, 'cell_pos': 'D9' if doc_type == '1' else 'D8'},
-            1: {'column_width': 0.75, 'cell_pos': 'B9'}
+            3: {'column_width': 1,    'cell_pos': 'D9' if doc_type == '1' else 'D8'},
+            1: {'column_width': 0.75, 'cell_pos': 'B9'},
         }
-        
         config = binder_configs.get(binder_size, binder_configs[3])
-        
-        # 모든 시트의 열 너비 조정
+
         for ws_sheet in wb.worksheets:
-            for i in range(ord('B'), ord('N')):
-                column = chr(i)
-                ws_sheet.column_dimensions[column].width = config['column_width']
-        
-        # 각 시트에 QR 코드 추가
-        for sheet in wb.worksheets:
+            for col in range(ord('B'), ord('N')):
+                ws_sheet.column_dimensions[chr(col)].width = config['column_width']
+
+        for idx, sheet in enumerate(wb.worksheets):
             try:
-                # QR 텍스트 생성
-                if doc_type == '1':
-                    qr_text = "|".join([
-                        str(sheet["B2"].value), str(sheet["B3"].value),
-                        str(sheet["B4"].value), str(sheet["B6"].value),
-                        str(sheet["B7"].value), str(sheet["B5"].value)
-                    ])
+                if qr_image_paths is not None:
+                    # paste 모드: 전달된 경로 순서대로 삽입
+                    img_file = qr_image_paths[idx]
                 else:
-                    qr_text = "|".join([
-                        str(sheet["B2"].value), str(sheet["B3"].value),
-                        str(sheet["B4"].value), str(sheet["B6"].value),
-                        str(sheet["B5"].value)
-                    ])
-                
-                # QR 이미지 생성
-                img_file = self.qr_generator.create_qr_for_excel(
-                    qr_text, self.upload_folder, f"{base_filename}_{sheet.title}"
-                )
-                img_files.append(img_file)
-                
-                # Excel에 이미지 추가
+                    # 자동 생성 모드 (기존 로직 그대로)
+                    if doc_type == '1':
+                        qr_text = "|".join([
+                            str(sheet["B2"].value), str(sheet["B3"].value),
+                            str(sheet["B4"].value), str(sheet["B6"].value),
+                            str(sheet["B7"].value), str(sheet["B5"].value)
+                        ])
+                    else:
+                        qr_text = "|".join([
+                            str(sheet["B2"].value), str(sheet["B3"].value),
+                            str(sheet["B4"].value), str(sheet["B6"].value),
+                            str(sheet["B5"].value)
+                        ])
+                    img_file = self.qr_generator.create_qr_for_excel(
+                        qr_text, self.upload_folder, f"{base_filename}_{sheet.title}"
+                    )
+                    img_files.append(img_file)
+
                 img_obj = Image(img_file)
                 img_obj.width = 75
                 img_obj.height = 75
                 sheet.add_image(img_obj, config['cell_pos'])
-                
+
             except Exception as e:
                 logger.error(f"Failed to add QR code to sheet {sheet.title}: {e}")
                 continue
-        
-        return img_files
+
+        return img_files  # auto 모드만 정리 대상 (paste 모드 임시파일은 호출자가 정리)
     
     def _cleanup_temp_files(self, img_files):
         """임시 이미지 파일들을 정리합니다."""
@@ -354,7 +351,7 @@ class ExcelLabelGenerator:
         logger.info(f"Deleted {deleted_images} temporary QR code images")
         return deleted_images
     
-    def create_label_excel(self, doc_type, binder_size, data):
+    def create_label_excel(self, doc_type, binder_size, data, qr_image_paths=None):
         """라벨 Excel 파일을 생성합니다."""
         start_time = time.time()
         logger.info(f"Starting Excel file creation - Doc type: {doc_type}, Binder size: {binder_size}cm")
@@ -385,7 +382,7 @@ class ExcelLabelGenerator:
                     cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             
             # QR 코드 생성 및 추가
-            img_files = self._apply_qr_codes(wb, doc_type, binder_size, base_filename)
+            img_files = self._apply_qr_codes(wb, doc_type, binder_size, base_filename, qr_image_paths)
             
             # 파일 저장
             filename = generate_timestamp_filename(base_filename)
