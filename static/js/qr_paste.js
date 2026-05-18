@@ -81,11 +81,12 @@
 
   // ── paste 핸들러 ─────────────────────────────────────────────────────────
   document.addEventListener('paste', async (e) => {
-    // dropzone이 포커스되거나 폼 영역 내부에 paste 이벤트가 오면 처리
-    if (!dropzone.matches(':focus') && !form.contains(document.activeElement)) return;
+    // 텍스트 입력 필드에서 발생한 paste는 무시 (사용자가 텍스트 붙여넣기 중)
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
     const items = Array.from(e.clipboardData?.items || []);
-    const imageItem = items.find(item => item.type === 'image/png');
+    const imageItem = items.find(item => item.type.startsWith('image/'));
     if (!imageItem) return;
 
     e.preventDefault();
