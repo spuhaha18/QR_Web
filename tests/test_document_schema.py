@@ -67,3 +67,13 @@ class TestValidation:
     def test_invalid_binder_size_value_raises(self):
         with pytest.raises(ValidationError, match='바인더'):
             parse_label_request(VALID_EQUIPMENT, '1', '2')
+
+    def test_empty_string_field_raises(self):
+        bad = {**VALID_EQUIPMENT, 'eq_number': ''}
+        with pytest.raises(ValidationError):
+            parse_label_request(bad, '1', '3')
+
+    def test_invalid_count_silently_defaults(self):
+        # safe_int_conversion returns default=1 for non-numeric strings — existing behavior
+        data, _, _ = parse_label_request({**VALID_EQUIPMENT, 'eq_doc_count': 'abc'}, '1', '3')
+        assert data['eq_doc_count'] == 1  # silently defaults, not an error
