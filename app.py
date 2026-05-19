@@ -15,9 +15,10 @@ from flask import Flask, render_template, request, send_file, redirect, url_for,
 # 로컬 모듈
 from utils import (
     get_client_info, log_client_access, create_directory_if_not_exists,
-    delete_file_later, validate_and_clean_input, safe_int_conversion,
-    validate_qr_image_bytes, delete_dir_later
+    validate_and_clean_input, safe_int_conversion,
+    validate_qr_image_bytes
 )
+from file_lifecycle import file_lifecycle
 from document_schema import parse_label_request, ValidationError
 from qr_generator import default_qr_generator
 from excel_generator import ExcelLabelGenerator
@@ -160,8 +161,8 @@ def create_label():
         raise
 
     # 엑셀 파일 전송 후 임시 디렉토리 정리
-    delete_file_later(filepath, DELETE_DELAY)
-    delete_dir_later(tmp_dir, delay=60)
+    file_lifecycle.register_file(filepath, DELETE_DELAY)
+    file_lifecycle.register_dir(tmp_dir, delay=60)
 
     logger.info(f"Paste-mode label generated: {filename} for {client_ip}")
     response = make_response(send_file(filepath, as_attachment=True, download_name=filename))
@@ -191,9 +192,9 @@ def api_create_label():
 
     # 라벨 생성
     filepath, filename = excel_generator.create_label_excel(doc_type, binder_size, processed_data)
-    
+
     # 파일 삭제 예약
-    delete_file_later(filepath, DELETE_DELAY)
+    file_lifecycle.register_file(filepath, DELETE_DELAY)
     
     return jsonify({
         'success': True,
