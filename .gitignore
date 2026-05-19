@@ -56,3 +56,7 @@ Thumbs.db
 
 # Cache
 .cache/
+.gstack/
+
+# Test artifacts
+test*.pdf

@@ -3,8 +3,6 @@ Utility functions for QR Web application
 """
 import os
 import io
-import time
-import threading
 import logging
 from datetime import datetime
 from flask import request
@@ -44,25 +42,6 @@ def get_file_size_safe(filepath):
         logger.warning(f"Could not get file size for {filepath}: {e}")
         return 0
 
-def delete_file_later(filepath, delay=600):
-    """지정된 시간 후 파일을 삭제합니다."""
-    def delete_file():
-        filename = os.path.basename(filepath)
-        logger.info(f"File deletion timer started for {filename} - will delete in {delay} seconds")
-        time.sleep(delay)
-        
-        if os.path.exists(filepath):
-            try:
-                file_size = get_file_size_safe(filepath)
-                os.remove(filepath)
-                logger.info(f"File deleted successfully: {filename} (was {file_size} bytes)")
-            except OSError as e:
-                logger.error(f"Failed to delete file {filename}: {e}")
-        else:
-            logger.warning(f"File not found for deletion: {filename}")
-    
-    threading.Thread(target=delete_file, daemon=True).start()
-
 def generate_timestamp_filename(base_name, extension="xlsx"):
     """타임스탬프가 포함된 파일명을 생성합니다."""
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -98,17 +77,3 @@ def validate_qr_image_bytes(data: bytes) -> bool:
         return False
 
 
-def delete_dir_later(dirpath: str, delay: int = 600):
-    """지정된 시간 후 디렉토리를 재귀 삭제한다."""
-    import shutil
-
-    def _delete():
-        time.sleep(delay)
-        if os.path.isdir(dirpath):
-            try:
-                shutil.rmtree(dirpath)
-                logger.info(f"Temp dir deleted: {dirpath}")
-            except OSError as e:
-                logger.error(f"Failed to delete temp dir {dirpath}: {e}")
-
-    threading.Thread(target=_delete, daemon=True).start()
