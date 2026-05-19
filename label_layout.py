@@ -27,3 +27,35 @@ def get_qr_config(doc_type: str, binder_size: int) -> dict:
         'column_width': entry['column_width'],
         'cell_pos': entry[cell_key],
     }
+
+
+def encode_qr_payload(data: dict, doc_type: str, sheet_idx: int, total: int) -> str:
+    """Build the pipe-delimited QR payload string for a label sheet.
+
+    Args:
+        data: parsed label request data (from document_schema.parse_label_request)
+        doc_type: '1' for equipment, '2' for project
+        sheet_idx: 1-based sheet number (e.g., 1 for first sheet)
+        total: total sheet count
+
+    Returns:
+        Pipe-delimited string matching the historical auto-generate format.
+    """
+    count_str = f"{sheet_idx}/{total}"
+    if doc_type == '1':
+        return "|".join([
+            str(data['eq_number']),
+            str(data['eq_doc_number']),
+            str(data['eq_doc_title']),
+            str(data['eq_doc_department']),
+            str(data['eq_doc_year']),
+            count_str,
+        ])
+    else:
+        return "|".join([
+            str(data['pjt_number']),
+            str(data['pjt_test_number']),
+            str(data['pjt_doc_title']),
+            str(data['pjt_doc_writer']),
+            count_str,
+        ])

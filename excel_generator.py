@@ -12,7 +12,7 @@ from openpyxl.drawing.image import Image
 
 from qr_generator import default_qr_generator
 from utils import get_file_size_safe, generate_timestamp_filename
-from label_layout import get_qr_config
+from label_layout import get_qr_config, encode_qr_payload
 
 logger = logging.getLogger(__name__)
 
@@ -285,7 +285,7 @@ class ExcelLabelGenerator:
             
             destination["B4"].font = self.FONT_TITLE
     
-    def _apply_qr_codes(self, wb, doc_type, binder_size, base_filename, qr_image_paths=None):
+    def _apply_qr_codes(self, wb, doc_type, binder_size, base_filename, qr_image_paths=None, data=None):
         """QR 코드를 시트에 추가한다. qr_image_paths가 None이면 자동 생성, 아니면 paste 모드."""
         logger.info(f"Applying QR codes to {len(wb.worksheets)} sheets "
                     f"({'paste' if qr_image_paths else 'auto'} mode)")
@@ -309,19 +309,13 @@ class ExcelLabelGenerator:
                     # paste 모드: 전달된 경로 순서대로 삽입
                     img_file = qr_image_paths[idx]
                 else:
-                    # 자동 생성 모드 (기존 로직 그대로)
-                    if doc_type == '1':
-                        qr_text = "|".join([
-                            str(sheet["B2"].value), str(sheet["B3"].value),
-                            str(sheet["B4"].value), str(sheet["B6"].value),
-                            str(sheet["B7"].value), str(sheet["B5"].value)
-                        ])
-                    else:
-                        qr_text = "|".join([
-                            str(sheet["B2"].value), str(sheet["B3"].value),
-                            str(sheet["B4"].value), str(sheet["B6"].value),
-                            str(sheet["B5"].value)
-                        ])
+                    # 자동 생성 모드: data dict에서 QR 페이로드를 명시적으로 구성
+                    if data is None:
+                        logger.error(f"Auto mode requires data dict but data is None (sheet {sheet.title}); skipping QR")
+                        continue
+                    idx_1based = idx + 1
+                    total = len(wb.worksheets)
+                    qr_text = encode_qr_payload(data, doc_type, idx_1based, total)
                     img_file = self.qr_generator.create_qr_for_excel(
                         qr_text, self.upload_folder, f"{base_filename}_{sheet.title}"
                     )
@@ -383,7 +377,7 @@ class ExcelLabelGenerator:
                     cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             
             # QR 코드 생성 및 추가
-            img_files = self._apply_qr_codes(wb, doc_type, binder_size, base_filename, qr_image_paths)
+            img_files = self._apply_qr_codes(wb, doc_type, binder_size, base_filename, qr_image_paths, data)
             
             # 파일 저장
             filename = generate_timestamp_filename(base_filename)
