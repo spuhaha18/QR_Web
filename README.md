@@ -22,9 +22,12 @@
 
 ```
 QR_Web/
-├── app.py                    # 메인 Flask 애플리케이션
+├── app.py                    # 메인 Flask 애플리케이션 (라우트 및 폼 처리)
 ├── config.py                 # 설정 관리
 ├── utils.py                  # 유틸리티 함수들
+├── document_schema.py        # 스키마·유효성 검사·라벨 데이터클래스 (EquipmentLabel, ProjectLabel)
+├── label_layout.py           # 바인더 사이즈 → QR 셀 배치 설정 (get_qr_config)
+├── file_lifecycle.py         # 임시 파일·디렉토리 지연 삭제 관리 (FileLifecycleManager)
 ├── qr_generator.py           # QR 코드 생성 모듈
 ├── excel_generator.py        # Excel 파일 생성 모듈
 ├── cache_manager.py          # 캐싱 시스템
@@ -37,6 +40,7 @@ QR_Web/
 │   ├── css/style.css         # 스타일시트
 │   ├── js/qr_paste.js        # QR 업로드·드롭존·순서 정렬 UI 로직
 │   └── vendor/sortablejs/    # SortableJS (드래그앤드롭 라이브러리)
+├── tests/                    # 단위 테스트 (pytest)
 ├── uploads/                  # 생성된 파일 임시 저장소
 ├── logs/                     # 로그 파일
 └── pyproject.toml / uv.lock  # uv 패키지 환경
@@ -154,6 +158,15 @@ curl -X POST http://localhost:5000/api/create_label \
 - 🎨 **토스트 알림 테마화**: `showMessage` 유틸로 통합하여 일관된 스타일 적용
 - 🔗 **Data URI 입력 방식 추가**: 우클릭 → 이미지 링크 복사 후 붙여넣기 지원
 - 🐛 **QA 버그 수정**: syncOrder 중복 카운트(ISSUE-001), totalEl detached span(ISSUE-002) 해결
+
+### v1.0.1.0 (2026-05-19)
+**아키텍처 리팩터링 및 보안 수정**
+- 🏗 **모듈 분리**: 문서 스키마·유효성 검사·라벨 데이터클래스를 `document_schema.py`로 추출 (`EquipmentLabel`, `ProjectLabel`, `parse_label_request`)
+- 📐 **레이아웃 설정 분리**: 바인더 사이즈 → QR 셀 배치 설정을 `label_layout.py`의 `get_qr_config()`로 이동
+- 🔒 **파일 생명주기 관리**: 임시 파일 삭제 헬퍼(`delete_file_later`, `delete_dir_later`)를 관찰 가능한 `FileLifecycleManager`(`file_lifecycle.py`)로 교체
+- 🛡 **경로 탐색 취약점 수정**: `/download/<filename>` 라우트에 `werkzeug.utils.safe_join` 적용
+- 🚫 **QR 텍스트 길이 제한**: `/api/qr_image` 및 `/api/qr_image_base64`에 500자 상한 적용
+- 🧪 **테스트 확충**: 7개 테스트 모듈, 67개 테스트 (이전 대비 15개에서 대폭 증가)
 
 ### v1.1.0 (2026-05-11)
 **UI/UX 전면 리디자인 및 시스템 안정화**
