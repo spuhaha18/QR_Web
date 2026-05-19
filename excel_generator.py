@@ -12,6 +12,7 @@ from openpyxl.drawing.image import Image
 
 from qr_generator import default_qr_generator
 from utils import get_file_size_safe, generate_timestamp_filename
+from label_layout import get_qr_config
 
 logger = logging.getLogger(__name__)
 
@@ -296,13 +297,7 @@ class ExcelLabelGenerator:
 
         img_files = []
 
-        binder_configs = {
-            7: {'column_width': 1.875, 'cell_pos': 'E9' if doc_type == '1' else 'E8'},
-            5: {'column_width': 1.25, 'cell_pos': 'D9' if doc_type == '1' else 'D8'},
-            3: {'column_width': 1,    'cell_pos': 'D9' if doc_type == '1' else 'D8'},
-            1: {'column_width': 0.75, 'cell_pos': 'B9'},
-        }
-        config = binder_configs.get(binder_size, binder_configs[3])
+        config = get_qr_config(doc_type, binder_size)
 
         for ws_sheet in wb.worksheets:
             for col in range(ord('B'), ord('N')):
