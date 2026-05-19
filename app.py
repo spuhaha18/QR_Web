@@ -229,6 +229,8 @@ def api_qr_image_base64():
         return jsonify({'error': 'QR 코드 텍스트가 제공되지 않았습니다.'}), 400
     
     qr_text = data['text']
+    if len(qr_text) > 500:
+        return jsonify({'error': 'QR 코드 텍스트가 너무 깁니다 (최대 500자).'}), 400
     img_base64 = default_qr_generator.create_qr_base64(qr_text)
     
     return jsonify({
