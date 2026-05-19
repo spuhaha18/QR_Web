@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.1.0] - 2026-05-19
+## [2.1.1.0] - 2026-05-19
 
 ### Changed
 - Extracted document schema and validation from `app.py` into `document_schema.py` — `parse_label_request`, `ValidationError`, field constants, and `EquipmentLabel`/`ProjectLabel` dataclasses now live in a single schema module
