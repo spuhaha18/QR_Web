@@ -1,4 +1,4 @@
-# QR_Web v2.1.0
+# QR_Web v2.1.1.0
 
 연구소 바인더 라벨 제작을 위한 웹 애플리케이션입니다. 직관적인 사용자 인터페이스를 통해 복잡한 과제 문서 및 기기 문서의 라벨을 표준화된 포맷으로 생성하고, Excel 파일로 손쉽게 출력할 수 있습니다.
 
@@ -77,7 +77,7 @@ pip install -r requirements.txt
 ```bash
 git clone https://github.com/spuhaha18/QR_Web.git
 cd QR_Web
-docker build -t qr-web:v2.1 .
+docker build -t qr-web:v2.1.1 .
 ```
 
 #### 방법 4: Docker Compose 사용
@@ -102,7 +102,7 @@ python app.py
 
 ### Docker 환경에서 실행
 ```bash
-docker run -d --name qr-web-app -p 5000:5000 qr-web:v2.1
+docker run -d --name qr-web-app -p 5000:5000 qr-web:v2.1.1
 ```
 
 ---
@@ -159,7 +159,7 @@ curl -X POST http://localhost:5000/api/create_label \
 - 🔗 **Data URI 입력 방식 추가**: 우클릭 → 이미지 링크 복사 후 붙여넣기 지원
 - 🐛 **QA 버그 수정**: syncOrder 중복 카운트(ISSUE-001), totalEl detached span(ISSUE-002) 해결
 
-### v1.0.1.0 (2026-05-19)
+### v2.1.1.0 (2026-05-19)
 **아키텍처 리팩터링 및 보안 수정**
 - 🏗 **모듈 분리**: 문서 스키마·유효성 검사·라벨 데이터클래스를 `document_schema.py`로 추출 (`EquipmentLabel`, `ProjectLabel`, `parse_label_request`)
 - 📐 **레이아웃 설정 분리**: 바인더 사이즈 → QR 셀 배치 설정을 `label_layout.py`의 `get_qr_config()`로 이동
