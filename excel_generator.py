@@ -12,7 +12,8 @@ from openpyxl.drawing.image import Image
 
 from qr_generator import default_qr_generator
 from utils import get_file_size_safe, generate_timestamp_filename
-from label_layout import get_qr_config, encode_qr_payload
+from label_layout import get_qr_config
+from document_schema import make_label, EquipmentLabel, ProjectLabel
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class ExcelLabelGenerator:
             border_dict = {side: Side(border_style='medium', color='000000') for side in sides}
             ws[cell_addr].border = Border(**border_dict)
     
-    def _setup_equipment_document(self, ws, data):
+    def _setup_equipment_document(self, ws, label: EquipmentLabel):
         """기기 문서 레이아웃을 설정합니다."""
         # 추가 병합
         ws.merge_cells('B7:M7')
@@ -113,22 +114,13 @@ class ExcelLabelGenerator:
                         cell.border = self.THIN_BORDER
         
         # 데이터 입력
-        ws['B2'].value = data['eq_number']
-        ws['B2'].font = self.FONT_TIMES
-        ws['B3'].value = data['eq_doc_number']
-        ws['B3'].font = self.FONT_TIMES
-        ws['B4'].value = data['eq_doc_title']
-        ws['B4'].font = self.FONT_TITLE
-        ws['B6'].value = data['eq_doc_department']
-        ws['B6'].font = self.FONT_TIMES
-        ws['B7'].value = data['eq_doc_year']
-        ws['B7'].font = self.FONT_TIMES
-        ws['B5'].value = f"1/{data['eq_doc_count']}"
-        ws['B5'].font = self.FONT_TIMES
-        
-        return data['eq_doc_number'], int(data['eq_doc_count'])
+        for addr, value in label.cell_values().items():
+            ws[addr].value = value
+            ws[addr].font = self.FONT_TITLE if addr == label.TITLE_CELL else self.FONT_TIMES
+
+        return label.doc_number, label.doc_count
     
-    def _setup_project_document(self, ws, data):
+    def _setup_project_document(self, ws, label: ProjectLabel):
         """과제 문서 레이아웃을 설정합니다."""
         # 추가 행 설정
         additional_rows = {20: 2.25, 21: 48, 22: 34.5, 23: 27.75, 24: 2.25}
@@ -149,37 +141,25 @@ class ExcelLabelGenerator:
         # 과제 문서용 추가 테두리 설정
         self._apply_project_borders(ws)
         
-        # 데이터 입력
-        ws['B2'].value = data['pjt_number']
+        # 데이터 입력 (값은 label에서, 폰트/정렬은 display concern으로 여기서 적용)
+        for addr, value in label.cell_values().items():
+            ws[addr].value = value
+
         ws['B2'].font = self.FONT_TIMES
-        ws['B3'].value = data['pjt_test_number']
         ws['B3'].font = self.FONT_TIMES
-        ws['B4'].value = data['pjt_doc_title']
         ws['B4'].font = self.FONT_TITLE
-        ws['B6'].value = data['pjt_doc_writer']
-        ws['B6'].font = self.FONT_TIMES
-        ws['B5'].value = f"1/{data['pjt_doc_count']}"
         ws['B5'].font = self.FONT_TIMES
-        
-        # 우측 섹션 데이터
-        ws['Q21'].value = f"[{ws['B2'].value}] {ws['B3'].value}"
+        ws['B6'].font = self.FONT_TIMES
         ws['Q21'].font = Font(name='times new roman', size=20, bold=True)
         ws['Q21'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        
-        ws['Q22'].value = ws['B4'].value
         ws['Q22'].font = Font(name='times new roman', size=13, bold=True)
         ws['Q22'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        
-        ws['R23'].value = ws['B6'].value
         ws['R23'].font = Font(name='times new roman', size=13, bold=True)
         ws['R23'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        
-        ws['S23'].value = f"1/{data['pjt_doc_count']}"
         ws['S23'].font = self.FONT_TIMES
-        
+
         ws.print_area = 'A1:T24'
-        
-        return data['pjt_test_number'], int(data['pjt_doc_count'])
+        return label.doc_number, label.doc_count
     
     def _apply_project_borders(self, ws):
         """과제 문서용 추가 테두리를 적용합니다."""
@@ -285,7 +265,7 @@ class ExcelLabelGenerator:
             
             destination["B4"].font = self.FONT_TITLE
     
-    def _apply_qr_codes(self, wb, doc_type, binder_size, base_filename, qr_image_paths=None, data=None):
+    def _apply_qr_codes(self, wb, doc_type, binder_size, base_filename, qr_image_paths=None, label=None):
         """QR 코드를 시트에 추가한다. qr_image_paths가 None이면 자동 생성, 아니면 paste 모드."""
         logger.info(f"Applying QR codes to {len(wb.worksheets)} sheets "
                     f"({'paste' if qr_image_paths else 'auto'} mode)")
@@ -309,13 +289,11 @@ class ExcelLabelGenerator:
                     # paste 모드: 전달된 경로 순서대로 삽입
                     img_file = qr_image_paths[idx]
                 else:
-                    # 자동 생성 모드: data dict에서 QR 페이로드를 명시적으로 구성
-                    if data is None:
-                        logger.error(f"Auto mode requires data dict but data is None (sheet {sheet.title}); skipping QR")
+                    # 자동 생성 모드: label 객체에서 QR 페이로드를 구성
+                    if label is None:
+                        logger.error(f"Auto mode requires label but label is None (sheet {sheet.title}); skipping QR")
                         continue
-                    idx_1based = idx + 1
-                    total = len(wb.worksheets)
-                    qr_text = encode_qr_payload(data, doc_type, idx_1based, total)
+                    qr_text = label.qr_payload(idx + 1, len(wb.worksheets))
                     img_file = self.qr_generator.create_qr_for_excel(
                         qr_text, self.upload_folder, f"{base_filename}_{sheet.title}"
                     )
@@ -362,10 +340,11 @@ class ExcelLabelGenerator:
             self._apply_borders(ws, doc_type)
             
             # 문서 타입별 설정
+            label = make_label(data, doc_type)
             if doc_type == '1':
-                base_filename, doc_count = self._setup_equipment_document(ws, data)
+                base_filename, doc_count = self._setup_equipment_document(ws, label)
             else:
-                base_filename, doc_count = self._setup_project_document(ws, data)
+                base_filename, doc_count = self._setup_project_document(ws, label)
             
             # 추가 시트 생성
             if doc_count > 1:
@@ -377,7 +356,7 @@ class ExcelLabelGenerator:
                     cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             
             # QR 코드 생성 및 추가
-            img_files = self._apply_qr_codes(wb, doc_type, binder_size, base_filename, qr_image_paths, data)
+            img_files = self._apply_qr_codes(wb, doc_type, binder_size, base_filename, qr_image_paths, label)
             
             # 파일 저장
             filename = generate_timestamp_filename(base_filename)

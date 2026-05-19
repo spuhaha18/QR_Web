@@ -83,3 +83,119 @@ def get_doc_count(data: dict, doc_type: str) -> int:
     """Return the document count (권수) from parsed label data."""
     key = 'eq_doc_count' if doc_type == '1' else 'pjt_doc_count'
     return data[key]
+
+
+from dataclasses import dataclass
+from typing import ClassVar, Union
+
+
+@dataclass
+class EquipmentLabel:
+    """Owns the equipment label's field values, cell mapping, and QR payload."""
+
+    DOC_TYPE: ClassVar[str] = '1'
+    TITLE_CELL: ClassVar[str] = 'B4'
+
+    eq_number: str
+    eq_doc_number: str
+    eq_doc_title: str
+    eq_doc_count: int
+    eq_doc_department: str
+    eq_doc_year: int
+
+    @property
+    def doc_number(self) -> str:
+        return self.eq_doc_number
+
+    @property
+    def doc_count(self) -> int:
+        return self.eq_doc_count
+
+    def cell_values(self) -> dict:
+        """Map cell address → value for Sheet 1."""
+        return {
+            'B2': self.eq_number,
+            'B3': self.eq_doc_number,
+            'B4': self.eq_doc_title,
+            'B5': f"1/{self.eq_doc_count}",
+            'B6': self.eq_doc_department,
+            'B7': self.eq_doc_year,
+        }
+
+    def qr_payload(self, sheet_idx: int, total: int) -> str:
+        """Pipe-delimited QR payload for sheet sheet_idx (1-based)."""
+        return '|'.join([
+            str(self.eq_number),
+            str(self.eq_doc_number),
+            str(self.eq_doc_title),
+            str(self.eq_doc_department),
+            str(self.eq_doc_year),
+            f"{sheet_idx}/{total}",
+        ])
+
+
+@dataclass
+class ProjectLabel:
+    """Owns the project label's field values, cell mapping, and QR payload."""
+
+    DOC_TYPE: ClassVar[str] = '2'
+    TITLE_CELL: ClassVar[str] = 'B4'
+
+    pjt_number: str
+    pjt_test_number: str
+    pjt_doc_title: str
+    pjt_doc_writer: str
+    pjt_doc_count: int
+
+    @property
+    def doc_number(self) -> str:
+        return self.pjt_test_number
+
+    @property
+    def doc_count(self) -> int:
+        return self.pjt_doc_count
+
+    def cell_values(self) -> dict:
+        """Map cell address → value for Sheet 1 (including secondary panel)."""
+        count_str = f"1/{self.pjt_doc_count}"
+        return {
+            'B2': self.pjt_number,
+            'B3': self.pjt_test_number,
+            'B4': self.pjt_doc_title,
+            'B5': count_str,
+            'B6': self.pjt_doc_writer,
+            'Q21': f"[{self.pjt_number}] {self.pjt_test_number}",
+            'Q22': self.pjt_doc_title,
+            'R23': self.pjt_doc_writer,
+            'S23': count_str,
+        }
+
+    def qr_payload(self, sheet_idx: int, total: int) -> str:
+        """Pipe-delimited QR payload for sheet sheet_idx (1-based)."""
+        return '|'.join([
+            str(self.pjt_number),
+            str(self.pjt_test_number),
+            str(self.pjt_doc_title),
+            str(self.pjt_doc_writer),
+            f"{sheet_idx}/{total}",
+        ])
+
+
+def make_label(data: dict, doc_type: str) -> Union[EquipmentLabel, ProjectLabel]:
+    """Factory: create the appropriate label object from parsed data."""
+    if doc_type == '1':
+        return EquipmentLabel(
+            eq_number=data['eq_number'],
+            eq_doc_number=data['eq_doc_number'],
+            eq_doc_title=data['eq_doc_title'],
+            eq_doc_count=data['eq_doc_count'],
+            eq_doc_department=data['eq_doc_department'],
+            eq_doc_year=data['eq_doc_year'],
+        )
+    return ProjectLabel(
+        pjt_number=data['pjt_number'],
+        pjt_test_number=data['pjt_test_number'],
+        pjt_doc_title=data['pjt_doc_title'],
+        pjt_doc_writer=data['pjt_doc_writer'],
+        pjt_doc_count=data['pjt_doc_count'],
+    )
