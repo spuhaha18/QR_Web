@@ -18,6 +18,7 @@ from utils import (
     delete_file_later, validate_and_clean_input, safe_int_conversion,
     validate_qr_image_bytes, delete_dir_later
 )
+from document_schema import parse_label_request, ValidationError
 from qr_generator import default_qr_generator
 from excel_generator import ExcelLabelGenerator
 from performance_monitor import monitor_performance, performance_monitor, request_metrics, get_system_metrics
@@ -72,73 +73,6 @@ def handle_errors(f):
     wrapper.__name__ = f.__name__
     return wrapper
 
-# 데이터 검증 함수들
-def validate_document_type(doc_type):
-    """문서 타입 검증"""
-    return doc_type in ['1', '2']
-
-def validate_binder_size(binder_size, doc_type):
-    """바인더 크기 검증"""
-    valid_sizes = [1, 3, 5, 7]
-    if binder_size not in valid_sizes:
-        return False
-    
-    # 과제 문서는 3cm 미만 불가
-    if doc_type == '2' and binder_size == 1:
-        return False
-    
-    return True
-
-def validate_required_fields(form_data, doc_type):
-    """필수 필드 검증"""
-    if doc_type == '1':
-        required_fields = ['eq_number', 'eq_doc_number', 'eq_doc_title', 
-                          'eq_doc_count', 'eq_doc_department', 'eq_doc_year']
-    else:
-        required_fields = ['pjt_number', 'pjt_test_number', 'pjt_doc_title', 
-                          'pjt_doc_writer', 'pjt_doc_count']
-    
-    for field in required_fields:
-        if not form_data.get(field):
-            return False, field
-    
-    return True, None
-
-def process_form_data(form_data, doc_type):
-    """폼 데이터를 처리하고 정리합니다."""
-    client_ip, _ = get_client_info()
-    
-    if doc_type == '1':
-        data = {
-            'eq_number': validate_and_clean_input(form_data.get('eq_number')),
-            'eq_doc_number': validate_and_clean_input(form_data.get('eq_doc_number')),
-            'eq_doc_title': validate_and_clean_input(form_data.get('eq_doc_title')),
-            'eq_doc_count': safe_int_conversion(form_data.get('eq_doc_count')),
-            'eq_doc_department': validate_and_clean_input(form_data.get('eq_doc_department')),
-            'eq_doc_year': safe_int_conversion(form_data.get('eq_doc_year'), datetime.now().year)
-        }
-        
-        logger.info(f"Equipment document data - Number: {data['eq_number']}, "
-                   f"Doc Number: {data['eq_doc_number']}, "
-                   f"Title: {data['eq_doc_title'][:50]}{'...' if len(data['eq_doc_title']) > 50 else ''}, "
-                   f"Count: {data['eq_doc_count']}, Department: {data['eq_doc_department']}, "
-                   f"Year: {data['eq_doc_year']}")
-    else:
-        data = {
-            'pjt_number': validate_and_clean_input(form_data.get('pjt_number')),
-            'pjt_test_number': validate_and_clean_input(form_data.get('pjt_test_number')),
-            'pjt_doc_title': validate_and_clean_input(form_data.get('pjt_doc_title')),
-            'pjt_doc_writer': validate_and_clean_input(form_data.get('pjt_doc_writer')),
-            'pjt_doc_count': safe_int_conversion(form_data.get('pjt_doc_count'))
-        }
-        
-        logger.info(f"Project document data - Project: {data['pjt_number']}, "
-                   f"Test Number: {data['pjt_test_number']}, "
-                   f"Title: {data['pjt_doc_title'][:50]}{'...' if len(data['pjt_doc_title']) > 50 else ''}, "
-                   f"Writer: {data['pjt_doc_writer']}, Count: {data['pjt_doc_count']}")
-    
-    return data
-
 # 라우트 정의
 @app.route('/')
 def index():
@@ -155,29 +89,19 @@ def create_label():
     client_ip, _ = get_client_info()
     logger.info(f"Create label request received from {client_ip}")
 
-    # 기본 폼 필드 검증
-    doc_type = request.form.get('doc_type')
+    # 기본 폼 필드 검증 및 파싱
     try:
-        binder_size = int(request.form.get('binder_size'))
-    except (ValueError, TypeError):
-        return jsonify({'error': '잘못된 바인더 크기입니다.'}), 400
+        data, doc_type, binder_size = parse_label_request(
+            request.form,
+            request.form.get('doc_type'),
+            request.form.get('binder_size'),
+        )
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
 
-    if not validate_document_type(doc_type):
-        return jsonify({'error': '잘못된 문서 종류입니다.'}), 400
-
-    if not validate_binder_size(binder_size, doc_type):
-        return jsonify({'error': '과제 문서의 경우 3cm 미만 바인더 크기를 선택할 수 없습니다.'}), 400
-
-    is_valid, missing_field = validate_required_fields(request.form, doc_type)
-    if not is_valid:
-        return jsonify({'error': f'필수 필드가 누락되었습니다: {missing_field}'}), 400
-
-    # doc_count 추출
+    # doc_count 추출 (parse_label_request에서 이미 int로 변환됨)
     count_key = 'eq_doc_count' if doc_type == '1' else 'pjt_doc_count'
-    try:
-        doc_count = int(request.form.get(count_key, 0))
-    except (ValueError, TypeError):
-        return jsonify({'error': '권수가 올바르지 않습니다.'}), 400
+    doc_count = data[count_key]
 
     # QR 이미지 파일 수신
     qr_files = request.files.getlist('qr_images')
@@ -228,7 +152,6 @@ def create_label():
                 fh.write(raw)
             qr_paths.append(path)
 
-        data = process_form_data(request.form, doc_type)
         filepath, filename = excel_generator.create_label_excel(
             doc_type, binder_size, data, qr_image_paths=qr_paths
         )
@@ -256,23 +179,17 @@ def api_create_label():
     if not data:
         return jsonify({'error': '잘못된 JSON 데이터입니다.'}), 400
     
-    doc_type = data.get('doc_type')
-    binder_size = data.get('binder_size')
-    
-    # 데이터 유효성 검사
-    if not validate_document_type(doc_type):
-        return jsonify({'error': '잘못된 문서 종류입니다.'}), 400
-    
-    if not validate_binder_size(binder_size, doc_type):
-        return jsonify({'error': '과제 문서의 경우 3cm 미만 바인더 크기를 선택할 수 없습니다.'}), 400
-    
-    # 필수 필드 검사
-    is_valid, missing_field = validate_required_fields(data, doc_type)
-    if not is_valid:
-        return jsonify({'error': f'필수 필드가 누락되었습니다: {missing_field}'}), 400
-    
+    # 데이터 유효성 검사 및 파싱
+    try:
+        processed_data, doc_type, binder_size = parse_label_request(
+            data,
+            data.get('doc_type'),
+            data.get('binder_size'),
+        )
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+
     # 라벨 생성
-    processed_data = process_form_data(data, doc_type)
     filepath, filename = excel_generator.create_label_excel(doc_type, binder_size, processed_data)
     
     # 파일 삭제 예약
