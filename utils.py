@@ -3,8 +3,6 @@ Utility functions for QR Web application
 """
 import os
 import io
-import time
-import threading
 import logging
 from datetime import datetime
 from flask import request

@@ -2,7 +2,9 @@
 Document schema: field definitions, validation rules, and data parsing
 for equipment (doc_type='1') and project (doc_type='2') label requests.
 """
+from dataclasses import dataclass
 from datetime import datetime
+from typing import ClassVar, Union
 from utils import validate_and_clean_input, safe_int_conversion
 
 
@@ -83,10 +85,6 @@ def get_doc_count(data: dict, doc_type: str) -> int:
     """Return the document count (권수) from parsed label data."""
     key = 'eq_doc_count' if doc_type == '1' else 'pjt_doc_count'
     return data[key]
-
-
-from dataclasses import dataclass
-from typing import ClassVar, Union
 
 
 @dataclass

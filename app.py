@@ -11,6 +11,7 @@ import tempfile
 import shutil
 from datetime import datetime
 from flask import Flask, render_template, request, send_file, redirect, url_for, flash, jsonify, make_response
+from werkzeug.utils import safe_join
 
 # 로컬 모듈
 from utils import (
@@ -208,6 +209,8 @@ def api_qr_image(qr_text):
     """QR 코드 이미지 생성 (PNG)"""
     if not qr_text:
         return jsonify({'error': 'QR 코드 텍스트가 제공되지 않았습니다.'}), 400
+    if len(qr_text) > 500:
+        return jsonify({'error': 'QR 코드 텍스트가 너무 깁니다 (최대 500자).'}), 400
     
     qr_img = default_qr_generator.create_qr_image(qr_text)
     
@@ -238,8 +241,8 @@ def api_qr_image_base64():
 @handle_errors
 def download_file(filename):
     """파일 다운로드"""
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    if os.path.exists(filepath):
+    filepath = safe_join(UPLOAD_FOLDER, filename)
+    if filepath and os.path.exists(filepath):
         return send_file(filepath, as_attachment=True, download_name=filename)
     else:
         return jsonify({'error': '파일을 찾을 수 없습니다.'}), 404

@@ -4,6 +4,7 @@ File lifecycle management: register files and directories for deferred cleanup.
 import os
 import shutil
 import threading
+import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,6 @@ class FileLifecycleManager:
 
     def _schedule(self, path: str, delay: int, is_dir: bool) -> None:
         def cleanup():
-            import time
             time.sleep(delay)
             try:
                 if is_dir:

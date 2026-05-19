@@ -163,8 +163,7 @@ class ExcelLabelGenerator:
     
     def _apply_project_borders(self, ws):
         """과제 문서용 추가 테두리를 적용합니다."""
-        from openpyxl.utils import get_column_letter
-        
+
         # B7:M17 영역 테두리 설정
         for range_str in ['B7:M7']:
             for row in ws[range_str]:
@@ -213,17 +212,10 @@ class ExcelLabelGenerator:
         for range_str in ['P21:P23', 'T21:T23']:
             for row in ws[range_str]:
                 for cell in row:
-                    side_style = 'left' if 'P' in range_str else 'right'
-                    if side_style == 'left':
-                        cell.border = Border(
-                            left=Side(border_style='thin', color='000000'),
-                            right=Side(border_style='thin', color='000000')
-                        )
-                    else:
-                        cell.border = Border(
-                            left=Side(border_style='thin', color='000000'),
-                            right=Side(border_style='thin', color='000000')
-                        )
+                    cell.border = Border(
+                        left=Side(border_style='thin', color='000000'),
+                        right=Side(border_style='thin', color='000000')
+                    )
         
         # 우측 영역 모서리 셀 특별 처리
         corner_borders = {
