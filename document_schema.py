@@ -77,3 +77,9 @@ def parse_label_request(form_data, doc_type, binder_size_raw):
         }
 
     return data, doc_type, binder_size
+
+
+def get_doc_count(data: dict, doc_type: str) -> int:
+    """Return the document count (권수) from parsed label data."""
+    key = 'eq_doc_count' if doc_type == '1' else 'pjt_doc_count'
+    return data[key]

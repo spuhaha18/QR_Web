@@ -19,7 +19,7 @@ from utils import (
     validate_qr_image_bytes
 )
 from file_lifecycle import file_lifecycle
-from document_schema import parse_label_request, ValidationError
+from document_schema import parse_label_request, ValidationError, get_doc_count
 from qr_generator import default_qr_generator
 from excel_generator import ExcelLabelGenerator
 from performance_monitor import monitor_performance, performance_monitor, request_metrics, get_system_metrics
@@ -101,8 +101,7 @@ def create_label():
         return jsonify({'error': str(e)}), 400
 
     # doc_count 추출 (parse_label_request에서 이미 int로 변환됨)
-    count_key = 'eq_doc_count' if doc_type == '1' else 'pjt_doc_count'
-    doc_count = data[count_key]
+    doc_count = get_doc_count(data, doc_type)
 
     # QR 이미지 파일 수신
     qr_files = request.files.getlist('qr_images')
