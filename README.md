@@ -150,15 +150,6 @@ curl -X POST http://localhost:5000/api/create_label \
 
 ## 📋 버전 히스토리
 
-### v2.1.0 (2026-05-18)
-**QR 파일 업로드·드롭존·썸네일 UX 전면 개선**
-- 📂 **파일 업로드/드롭존**: QR 이미지를 파일 선택 또는 드래그&드롭으로 업로드 (기존 붙여넣기 방식 대체)
-- 🖼 **썸네일 수량 라벨**: 업로드된 QR 이미지 썸네일 하단에 `<N>권` 라벨 표시
-- ↕️ **드래그앤드롭 순서 재배치**: SortableJS 내장으로 QR 이미지 순서 자유 조정
-- 🎨 **토스트 알림 테마화**: `showMessage` 유틸로 통합하여 일관된 스타일 적용
-- 🔗 **Data URI 입력 방식 추가**: 우클릭 → 이미지 링크 복사 후 붙여넣기 지원
-- 🐛 **QA 버그 수정**: syncOrder 중복 카운트(ISSUE-001), totalEl detached span(ISSUE-002) 해결
-
 ### v2.1.1.0 (2026-05-19)
 **아키텍처 리팩터링 및 보안 수정**
 - 🏗 **모듈 분리**: 문서 스키마·유효성 검사·라벨 데이터클래스를 `document_schema.py`로 추출 (`EquipmentLabel`, `ProjectLabel`, `parse_label_request`)
@@ -167,6 +158,15 @@ curl -X POST http://localhost:5000/api/create_label \
 - 🛡 **경로 탐색 취약점 수정**: `/download/<filename>` 라우트에 `werkzeug.utils.safe_join` 적용
 - 🚫 **QR 텍스트 길이 제한**: `/api/qr_image` 및 `/api/qr_image_base64`에 500자 상한 적용
 - 🧪 **테스트 확충**: 7개 테스트 모듈, 67개 테스트 (이전 대비 15개에서 대폭 증가)
+
+### v2.1.0 (2026-05-18)
+**QR 파일 업로드·드롭존·썸네일 UX 전면 개선**
+- 📂 **파일 업로드/드롭존**: QR 이미지를 파일 선택 또는 드래그&드롭으로 업로드 (기존 붙여넣기 방식 대체)
+- 🖼 **썸네일 수량 라벨**: 업로드된 QR 이미지 썸네일 하단에 `<N>권` 라벨 표시
+- ↕️ **드래그앤드롭 순서 재배치**: SortableJS 내장으로 QR 이미지 순서 자유 조정
+- 🎨 **토스트 알림 테마화**: `showMessage` 유틸로 통합하여 일관된 스타일 적용
+- 🔗 **Data URI 입력 방식 추가**: 우클릭 → 이미지 링크 복사 후 붙여넣기 지원
+- 🐛 **QA 버그 수정**: syncOrder 중복 카운트(ISSUE-001), totalEl detached span(ISSUE-002) 해결
 
 ### v1.1.0 (2026-05-11)
 **UI/UX 전면 리디자인 및 시스템 안정화**
