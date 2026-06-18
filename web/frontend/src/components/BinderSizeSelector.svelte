@@ -2,8 +2,9 @@
   import type { BinderSize, DocType } from '../lib/types';
   import { Ruler, BookOpen, Book, Library } from 'lucide-svelte';
 
-  export let value: BinderSize;
+  export let value: BinderSize | null;
   export let docType: DocType;
+  export let invalid = false;
 
   // 과제 문서(doc_type=2)는 3cm 미만(1) 바인더를 숨긴다.
   $: hide1cm = docType === '2';
@@ -11,7 +12,7 @@
 
 <div class="form-group">
   <span class="field-label">바인더 크기</span>
-  <div class="option-group binder-size-group">
+  <div class="option-group binder-size-group" class:invalid>
     {#if !hide1cm}
       <button
         type="button"
@@ -51,4 +52,5 @@
       <span>7cm</span>
     </button>
   </div>
+  {#if invalid}<span class="field-error">바인더 크기를 선택하세요.</span>{/if}
 </div>

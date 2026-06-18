@@ -32,7 +32,8 @@
 
   // ── 상태 ──────────────────────────────────────────────
   let docType: DocType = '1';
-  let binderSize: BinderSize = 3;
+  // 바인더 크기는 기본 미선택 — 사용자가 반드시 직접 골라야 한다.
+  let binderSize: BinderSize | null = null;
 
   const currentYear = new Date().getFullYear();
   let equipment: EquipmentForm = {
@@ -65,9 +66,10 @@
     localStorage.setItem('theme', theme);
   }
 
-  // 과제 문서로 전환 시 binderSize==1이면 3으로 리셋 (updateFormFields 동작)
+  // 과제 문서는 3cm 미만(1)을 숨기므로, 선택돼 있던 1cm는 미선택으로 되돌려
+  // 사용자가 유효한 크기를 다시 고르도록 한다.
   $: if (docType === '2' && binderSize === 1) {
-    binderSize = 3;
+    binderSize = null;
   }
 
   // 권수 (현재 문서 종류 기준)
@@ -79,14 +81,15 @@
   $: errors = docType === '1' ? validateEquipment(equipment) : validateProject(project);
   $: fieldErrorCount = Object.keys(errors).length;
   $: qrCount = $qrItems.length;
-  $: isReady = fieldErrorCount === 0 && qrCount === docCount;
+  $: binderOk = binderSize !== null;
+  $: isReady = fieldErrorCount === 0 && binderOk && qrCount === docCount;
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
     if (loading) return;
     if (!isReady) { submitAttempted = true; return; }
     const insertion = $qrItems;
-    const form: LabelForm = { docType, binderSize, equipment, project };
+    const form: LabelForm = { docType, binderSize: binderSize as BinderSize, equipment, project };
     loading = true;
     try {
       await submitLabel(form, insertion, displayItems);
@@ -100,6 +103,7 @@
   function resetForm() {
     equipment = { eq_number: '', eq_doc_number: '', eq_doc_title: '', eq_doc_count: 1, eq_doc_department: '', eq_doc_year: currentYear };
     project = { pjt_number: '', pjt_test_number: '', pjt_doc_title: '', pjt_doc_writer: '', pjt_doc_count: 1 };
+    binderSize = null;
     clearItems();
     submitAttempted = false;
     formKey++;
@@ -139,7 +143,7 @@
       <div class="form-section">
         <div class="section-title"><Settings2 size={20} /> 기본 설정</div>
         <DocTypeSelector bind:value={docType} />
-        <BinderSizeSelector bind:value={binderSize} {docType} />
+        <BinderSizeSelector bind:value={binderSize} {docType} invalid={submitAttempted && !binderOk} />
       </div>
 
       {#key formKey}
@@ -161,7 +165,7 @@
       </div>
     </div>
 
-    <ReadinessPanel {fieldErrorCount} {qrCount} {docCount} {isReady} {loading} onReset={resetForm} />
+    <ReadinessPanel {fieldErrorCount} {binderOk} {qrCount} {docCount} {isReady} {loading} onReset={resetForm} />
   </form>
 
   <div class="contact-info">

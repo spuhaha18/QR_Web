@@ -307,6 +307,10 @@ select {
     grid-template-columns: repeat(4, 1fr);
 }
 
+.option-group.binder-size-group.invalid .option-button:not(.active) {
+    border-color: var(--error-text);
+}
+
 .option-button {
     font-family: inherit;
     font-size: 1rem;
