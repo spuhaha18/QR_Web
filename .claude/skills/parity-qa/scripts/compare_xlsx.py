@@ -2,7 +2,11 @@
 """두 .xlsx를 의미 단위로 비교한다 (XML 바이트 비교 아님).
 
 excelize와 openpyxl은 다른 XML을 내므로, 라벨에 의미 있는 속성만 비교한다:
-시트명/수, 셀값, 병합 범위, 열너비, 행높이, 이미지 앵커 셀+개수, 셀별 테두리/폰트.
+시트명/수, 셀값, 병합 범위, 열너비, 행높이, 셀별 테두리/폰트.
+
+이미지 앵커(셀+오프셋)는 비교하지 않는다. Go 구현은 QR을 박스 중앙으로
+배치하므로 Python 레거시 앵커와 의도적으로 다르다. 앵커 검증은
+internal/excel/centering_test.go(TestQRCenteredInBox)가 담당한다.
 
 usage: python compare_xlsx.py golden.xlsx candidate.xlsx
 종료코드 0 = 일치, 1 = 불일치(차이 출력).
