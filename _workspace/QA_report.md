@@ -85,3 +85,88 @@ styles.go `setBorderCell`이 union 아닌 full-replace 구현. 골든의 openpyx
 - **게이트 차단 이슈: 없음.** 14/14 의미 동등, 후처리본 유효(zip/openpyxl/excelize 전부 OK).
 - **비차단(유지보수)**: colsplit regex의 excelize 출력포맷 silent 결합(위 1번). 담당: excel-parity-engineer.
 - 부수 차이(이미지 dedup, sharedStrings)는 의미 동등이라 이슈 아님.
+
+---
+
+## 최종 컷오버 게이트: 종합 E2E 검증 — 판정: **PASS (조건부)** ✅
+
+빌드된 단일 바이너리 `bin/qrweb`(v2.1.1.0, statically linked/stripped)를 PORT=5097로 기동,
+실제 HTTP로 현재 Python 앱과의 동작 동등성을 적대적으로 검증.
+환경: go1.26.4, openpyxl 3.1.5, .venv python3.13.
+
+### 1. 전체 회귀 — PASS
+`go test -count=1 ./...` → 전 패키지 green: excel(3.73s)/httpx/imaging/label/qr ok. 실패 0.
+
+### 2. 바이너리 HTTP E2E (POST /create_label, paste, multipart) — **14/14 MATCH**
+`scripts/e2e_http_matrix.py`로 capture_golden.py와 동일 입력(EQUIP/PROJ + 더미 64x64 검정 PNG,
+qr_order=[0..n-1])을 Svelte FormData 키와 동일하게 실제 HTTP POST → 응답 .xlsx를 `/tmp/e2e_cand/`
+저장 → compare_xlsx.py로 골든 대조.
+
+| 케이스 | status | sig | compare_xlsx |
+|---|---|---|---|
+| t1_b1_n1 / n3 | 200 / 200 | PK / PK | MATCH / MATCH |
+| t1_b3_n1 / n3 | 200 / 200 | PK / PK | MATCH / MATCH |
+| t1_b5_n1 / n3 | 200 / 200 | PK / PK | MATCH / MATCH |
+| t1_b7_n1 / n3 | 200 / 200 | PK / PK | MATCH / MATCH |
+| t2_b3_n1 / n3 | 200 / 200 | PK / PK | MATCH / MATCH |
+| t2_b5_n1 / n3 | 200 / 200 | PK / PK | MATCH / MATCH |
+| t2_b7_n1 / n3 | 200 / 200 | PK / PK | MATCH / MATCH |
+
+**HTTP→excel 전체 경로 패리티 입증: 14/14 MATCH.**
+- Content-Type: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` ✓
+- Content-Disposition: `attachment; filename="DOC-100_{YYYYMMDDhhmmss}.xlsx"` ✓ (타임스탬프 무시, 내용 동등)
+
+### 3. 검증 에러 경로 (한국어 보존) — PASS (9/9, app.py 원문 일치)
+| 케이스 | 응답 | status |
+|---|---|---|
+| 개수불일치(file 1 vs count 2) | `QR 이미지 수가 권수와 다릅니다 (받음: 1, 권수: 2)` | 400 |
+| qr_order 범위초과 [5] | `qr_order에 중복이나 범위 초과 인덱스가 있습니다.` | 400 |
+| 비PNG | `유효하지 않은 PNG 이미지입니다: notpng.png` | 400 |
+| 과제 binder=1 | `과제 문서의 경우 3cm 미만 바인더 크기를 선택할 수 없습니다.` | 400 |
+| doc_type=9 | `잘못된 문서 종류입니다.` | 400 |
+| binder_size=2 | `잘못된 바인더 크기입니다.` | 400 |
+| 필수필드 누락 | `필수 필드가 누락되었습니다: eq_doc_title` | 400 |
+| qr_order 파싱불가 | `qr_order 형식이 올바르지 않습니다.` | 400 |
+| qr_order 길이≠권수 | `qr_order 길이가 권수와 다릅니다.` | 400 |
+
+전부 app.py 원문 문자열 + 400 일치.
+
+### 4. 경계면 교차검증 (api.ts ↔ E_api_contract.md ↔ 실제 서버) — PASS
+프론트는 **paste 모드 `/create_label`만 사용**(auto/logs는 미배선 SPA 추후 라우트, F_frontend.md §71 명시).
+boundary-bugs.md 체크리스트 3자 대조:
+- FormData 키: `doc_type/binder_size/eq_*|pjt_*/qr_order(JSON.stringify)/qr_images(N File `qr_{i}.png`)` — 계약·서버 수용(14 MATCH) 1:1 일치 ✓
+- qr_order 순열: `displayItems.map(findIndex(insertion))` + 파일 삽입순서 — 계약 재정렬 시맨틱 일치 ✓
+- 성공: `resp.blob()`(json 아님) + Content-Disposition 정규식 — 실제 헤더 파싱 확인(`DOC-100_….xlsx` 정상 추출) ✓
+- 에러: `!resp.ok → resp.json().catch() → throw err.error` vs 서버 `{error}` 400 ✓
+- Content-Type vnd.openxml…sheet ✓
+**필드명/형식 불일치 없음. camelCase/snake_case 혼동 없음.**
+
+### 5. 로그뷰어 — PASS
+- `GET /api/logs`: 200, 키 `[level_filter, logs, requested_lines, search_filter, success, total_lines]` 계약 일치. level=ERROR 필터 동작, search 동작, lines=5000→`requested_lines:1000` 캡 ✓
+- `POST /api/logs/clear`: 200 `{success:true, message:"로그 파일이 초기화되었습니다.", backup_file:"app_backup_…"}` ✓
+- `GET /api/logs/download`: 200 `text/plain; charset=utf-8` + `attachment; filename="app_logs_{ts}.log"` ✓
+
+### 6. auto 모드 (POST /api/create_label, JSON, §12) — PASS
+- 성공 200: `success:true`, `message:"라벨이 성공적으로 생성되었습니다."`, `filename`, `content_type` vnd.openxml…sheet, `file_base64` 존재(len 12096).
+- base64 디코드 → 9071바이트 PK 시그니처, openpyxl 로드 성공, sheet `"Sheet 1"`(공백 보존), B2=EQ-001, 이미지 1개 임베드 ✓
+- 에러: project binder=1 → 400 `과제…` ✓ ; malformed/empty body/null → 400 `잘못된 JSON 데이터입니다.` ✓
+
+---
+
+## ⚠ 발견 이슈 (비차단, 단일 엣지케이스 파리티 차이)
+
+**[I-1] auto 모드 빈 객체 `{}` 에러 메시지 불일치** — 담당: go-backend-engineer
+- `POST /api/create_label` 바디 `{}` (빈 JSON 객체):
+  - **Python(app.py:180)**: `if not data` → `not {}`=True → `잘못된 JSON 데이터입니다.` (400)
+  - **Go(현재)**: `{}`를 유효 맵으로 보고 진행 → doc_type 검증에서 `잘못된 문서 종류입니다.` (400)
+- malformed/빈바디/null 케이스는 양측 모두 `잘못된 JSON 데이터입니다.`로 일치. 차이는 **`{}` 단 한 케이스의 메시지 텍스트뿐**.
+- 영향: status는 양측 400 동일, 흐름 동등. 프론트는 auto 모드 미사용 → 현 UI 영향 0. pytest에 `{}` 케이스 단언이 있으면 패리티 테스트 차이 가능.
+- 권고: Go auto 핸들러에서 파싱 후 `len(payload)==0`(빈 맵)도 `잘못된 JSON 데이터입니다.`로 매핑.
+
+## 잔여 위험
+- [기존 비차단] colsplit.go regex의 excelize 출력포맷 silent 결합(Phase 3 리포트 참조). 담당: excel-parity-engineer.
+- [I-1] auto `{}` 엣지 메시지. 비차단(프론트 미사용 경로).
+
+## 최종 판정: **컷오버 게이트 PASS**
+14/14 HTTP E2E MATCH, 9/9 에러경로 한국어 일치, 경계면 무불일치, 로그뷰어/auto 정상.
+유일 발견(I-1)은 프론트 미사용 auto 경로의 단일 엣지케이스 메시지 차이로 컷오버 비차단.
