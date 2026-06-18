@@ -10,8 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -60,3 +60,7 @@ Thumbs.db
 
 # Test artifacts
 test*.pdf
+
+# Frontend (Vite + Svelte)
+web/frontend/node_modules/
+web/dist/
