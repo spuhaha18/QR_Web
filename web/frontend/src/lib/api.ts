@@ -60,8 +60,7 @@ export async function submitLabel(
   }
 
   const disposition = resp.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-  const filename = match ? match[1].replace(/['"]/g, '') : '라벨.xlsx';
+  const filename = parseFilename(disposition);
 
   const blob = await resp.blob();
   const a = document.createElement('a');
@@ -71,4 +70,25 @@ export async function submitLabel(
   a.click();
   a.remove();
   URL.revokeObjectURL(a.href);
+}
+
+/**
+ * Extract the download filename from a Content-Disposition header.
+ * Prefers RFC 5987 `filename*=UTF-8''<percent-encoded>` (correct for non-ASCII
+ * names like Korean) and falls back to the ASCII `filename="..."` token.
+ */
+function parseFilename(disposition: string): string {
+  const star = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim());
+    } catch {
+      /* fall through to plain filename */
+    }
+  }
+  const plain = disposition.match(/filename\s*=\s*"?([^";]+)"?/i);
+  if (plain) {
+    return plain[1].trim();
+  }
+  return '라벨.xlsx';
 }

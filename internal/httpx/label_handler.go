@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -173,9 +174,56 @@ const xlsxContentType = "application/vnd.openxmlformats-officedocument.spreadshe
 
 // sendXLSX streams the workbook bytes as an attachment.
 func sendXLSX(c *fiber.Ctx, data []byte, filename string) error {
-	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	c.Set("Content-Disposition", contentDisposition(filename))
 	c.Set(fiber.HeaderContentType, xlsxContentType)
 	return c.Send(data)
+}
+
+// contentDisposition builds an RFC 6266 attachment header that survives
+// non-ASCII filenames (e.g. Korean document numbers). HTTP header values are
+// ISO-8859-1, so raw UTF-8 in filename="..." is mis-decoded by browsers into
+// mojibake. We emit an ASCII fallback plus a filename*=UTF-8” percent-encoded
+// form, which modern clients prefer — matching Flask send_file's behavior.
+func contentDisposition(filename string) string {
+	return fmt.Sprintf("attachment; filename=%q; filename*=UTF-8''%s",
+		asciiFallbackName(filename), rfc5987Encode(filename))
+}
+
+// asciiFallbackName replaces non-ASCII (and quote/backslash) runes with '_' so
+// the legacy filename="..." token is a safe ASCII string.
+func asciiFallbackName(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r < 0x80 && r != '"' && r != '\\' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	if out := b.String(); out != "" {
+		return out
+	}
+	return "label.xlsx"
+}
+
+// rfc5987Encode percent-encodes a UTF-8 string per RFC 5987 ext-value: every
+// byte that is not an attr-char is %HH-escaped.
+func rfc5987Encode(s string) string {
+	const upperhex = "0123456789ABCDEF"
+	const attrChars = "!#$&+-.^_`|~"
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			strings.IndexByte(attrChars, c) >= 0 {
+			b.WriteByte(c)
+		} else {
+			b.WriteByte('%')
+			b.WriteByte(upperhex[c>>4])
+			b.WriteByte(upperhex[c&0x0f])
+		}
+	}
+	return b.String()
 }
 
 // isPermutation reports whether order is exactly a permutation of [0, n)

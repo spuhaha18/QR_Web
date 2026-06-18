@@ -153,6 +153,35 @@ func TestCreateLabel_CorrectNFiles_ReturnsXLSX(t *testing.T) {
 	}
 }
 
+func TestCreateLabel_KoreanDocNumber_RFC5987Filename(t *testing.T) {
+	s := newTestServer(t)
+	png := makePNG(t)
+	fields := baseEqFields()
+	fields["eq_doc_count"] = "1"
+	fields["eq_doc_number"] = "한글" // filename base becomes "한글_<ts>.xlsx"
+	fields["qr_order"] = "[0]"
+	files := []qrFile{{"qr_images", "qr0.png", png}}
+	rec := postMultipart(t, s, "/create_label", fields, files)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+	cd := rec.Header().Get("Content-Disposition")
+	// RFC 6266: non-ASCII names must use filename*=UTF-8'' with percent-encoding.
+	// 한 -> %ED%95%9C, 글 -> %EA%B8%80.
+	if !strings.Contains(cd, "filename*=UTF-8''%ED%95%9C%EA%B8%80") {
+		t.Errorf("Content-Disposition missing RFC5987 encoded name: %q", cd)
+	}
+	// The header value must be ASCII-only (no raw UTF-8 bytes that browsers
+	// would mis-decode as Latin-1).
+	for i := 0; i < len(cd); i++ {
+		if cd[i] >= 0x80 {
+			t.Errorf("Content-Disposition contains non-ASCII byte 0x%02x: %q", cd[i], cd)
+			break
+		}
+	}
+}
+
 func TestCreateLabel_FileCountMismatch_400(t *testing.T) {
 	s := newTestServer(t)
 	png := makePNG(t)
