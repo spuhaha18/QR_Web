@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"os"
 	"testing"
 )
 
@@ -72,5 +73,33 @@ func TestValidatePNGBytes_TruncatedReturnsFalse(t *testing.T) {
 	full := makePNGBytes(t)
 	if ValidatePNGBytes(full[:20]) {
 		t.Error("ValidatePNGBytes(truncated png) = true, want false")
+	}
+}
+
+// A real user-uploaded QR PNG with a corrupt IDAT CRC. Pillow's verify()
+// rejects it ("bad header checksum in IDAT") and so must we — both Python and
+// Go reject the same bytes. Guards the chunk-CRC parity with the legacy app.
+func TestValidatePNGBytes_CorruptIDATCRCReturnsFalse(t *testing.T) {
+	data, err := os.ReadFile("testdata/broken_idat_crc.png")
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if ValidatePNGBytes(data) {
+		t.Error("ValidatePNGBytes(corrupt-IDAT-CRC png) = true, want false (Pillow rejects it)")
+	}
+}
+
+// The same image re-encoded to a structurally valid PNG. Pillow accepts it and
+// so must we. Together with the corrupt fixture this pins the validator to
+// Pillow.verify() semantics (chunk-CRC check, NOT a full pixel decode), so that
+// PNGs carrying extra IDAT pixel data — which Pillow accepts but image/png's
+// strict Decode rejects as "too much pixel data" — are not wrongly refused.
+func TestValidatePNGBytes_ValidReencodedReturnsTrue(t *testing.T) {
+	data, err := os.ReadFile("testdata/valid_reencoded.png")
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if !ValidatePNGBytes(data) {
+		t.Error("ValidatePNGBytes(valid re-encoded png) = false, want true")
 	}
 }
