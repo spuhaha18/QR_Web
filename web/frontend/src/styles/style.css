@@ -1190,6 +1190,6 @@ button.header-link {
 /* ===== 인라인 필드 에러 (Task 3) ===== */
 .field-error { display: block; margin-top: 4px; font-size: 0.8rem; color: var(--error-text); font-weight: 600; }
 input.invalid { border-color: var(--error-text) !important; }
-input.invalid:focus { box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15) !important; }
+input.invalid:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-text) 15%, transparent) !important; }
 .section-check { color: var(--success-text); font-weight: 800; margin-left: 6px; }
 

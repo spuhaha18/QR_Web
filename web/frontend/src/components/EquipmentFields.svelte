@@ -8,7 +8,7 @@
 
   let touched: Record<string, boolean> = {};
   const blur = (f: string) => (touched = { ...touched, [f]: true });
-  const show = (f: string) => (touched[f] || showAll) && errors[f];
+  const show = (f: string) => (touched[f] || showAll) && !!errors[f];
 
   $: valid = Object.keys(errors).length === 0;
 </script>
