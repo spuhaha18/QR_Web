@@ -5,12 +5,16 @@
 package httpx
 
 import (
+	"net/http"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"qrweb/internal/config"
 	"qrweb/internal/excel"
 	"qrweb/internal/logging"
+	"qrweb/web"
 )
 
 // Server bundles the Fiber app with its dependencies.
@@ -58,8 +62,9 @@ func (s *Server) Listen() error {
 	return s.app.Listen(s.cfg.Addr())
 }
 
-// registerRoutes wires every endpoint. API/explicit routes come first; the SPA
-// placeholder ("/") is last.
+// registerRoutes wires every endpoint. API/explicit routes are registered
+// FIRST so they are never shadowed by the SPA static middleware / fallback;
+// the embedded SPA is mounted last as a catch-all at "/".
 func (s *Server) registerRoutes() {
 	// Label creation.
 	s.app.Post("/create_label", s.handleCreateLabelPaste)    // paste mode, multipart -> .xlsx
@@ -77,14 +82,14 @@ func (s *Server) registerRoutes() {
 	s.app.Post("/api/logs/clear", s.handleClearLogs)
 	s.app.Get("/api/logs/download", s.handleDownloadLogs)
 
-	// SPA placeholder (replaced by embedded Vite build in Phase 6).
-	s.app.Get("/", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusNoContent).SendString("")
-	})
-	// Log viewer page placeholder (SPA route in Phase 6).
-	s.app.Get("/logs", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusNoContent).SendString("")
-	})
+	// Embedded SPA (Vite/Svelte build). Mounted at "/" AFTER every API route so
+	// /create_label and /api/* take precedence. NotFoundFile serves index.html
+	// for any unmatched path (client-side routing fallback, e.g. /logs).
+	s.app.Use("/", filesystem.New(filesystem.Config{
+		Root:         http.FS(web.DistFS()),
+		Index:        "index.html",
+		NotFoundFile: "index.html",
+	}))
 }
 
 // requestLogger logs each request after it completes (method, path, status).

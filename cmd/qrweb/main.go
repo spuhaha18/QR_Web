@@ -1,7 +1,7 @@
 // Command qrweb is the QR Web Label Generator server (Go/Fiber port of app.py).
 // It loads config from the environment, initializes the file+stdout logger, and
-// serves the HTTP API. The static SPA is embedded in Phase 6; until then "/"
-// returns 204.
+// serves the HTTP API plus the embedded Vite/Svelte SPA (web/dist) as a single
+// static binary.
 package main
 
 import (

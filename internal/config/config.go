@@ -10,6 +10,12 @@ import (
 	"strconv"
 )
 
+// defaultVersion is the fallback /api/health version. The Makefile injects the
+// VERSION file content via -ldflags "-X qrweb/internal/config.defaultVersion=...";
+// without injection it stays "1.0.0" (config.py parity). APP_VERSION env still
+// overrides it at runtime.
+var defaultVersion = "1.0.0"
+
 // Config is the resolved application configuration. Field defaults mirror the
 // config.py Config class.
 type Config struct {
@@ -37,7 +43,7 @@ func Load() *Config {
 		MaxQRFileSize:    getEnvInt64("MAX_QR_FILE_SIZE", 2*1024*1024),
 		QRBoxSize:        getEnvInt("QR_BOX_SIZE", 10),
 		QRBorder:         getEnvInt("QR_BORDER", 2),
-		Version:          getEnv("APP_VERSION", "1.0.0"),
+		Version:          getEnv("APP_VERSION", defaultVersion),
 	}
 }
 

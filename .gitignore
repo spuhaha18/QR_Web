@@ -64,3 +64,6 @@ test*.pdf
 # Frontend (Vite + Svelte)
 web/frontend/node_modules/
 web/dist/
+
+# Go build output
+/bin/
