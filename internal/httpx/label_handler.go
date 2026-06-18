@@ -128,7 +128,8 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 // workbook bytes are returned inline as base64.
 func (s *Server) handleCreateLabelAuto(c *fiber.Ctx) error {
 	var body map[string]any
-	if err := json.Unmarshal(c.Body(), &body); err != nil || body == nil {
+	if err := json.Unmarshal(c.Body(), &body); err != nil || len(body) == 0 {
+		// Empty object {} matches Python app.py's `not data` → same message/status.
 		return errJSON(c, fiber.StatusBadRequest, "잘못된 JSON 데이터입니다.")
 	}
 
