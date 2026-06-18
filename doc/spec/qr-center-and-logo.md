@@ -28,7 +28,7 @@ QR을 **하단 QR 박스(테두리로 둘러싸인 내부 영역)의 정중앙**
 ### 계산 방식
 박스 크기를 EMU로 구해 중앙 오프셋을 계산한다.
 - **가로폭(EMU)**: 컬럼 B–M 각 폭(char 단위, 바인더별 0.75/1.0/1.25/1.875)을 px로 환산 후 EMU(`px × 9525`)로 합산.
-  - Excel char→px 환산: `px = round(width × MDW + 5)` (MDW=최대자릿너비, Calibri 11 ≈ 7px). excelize 내부 환산 헬퍼가 있으면 그것을 사용하고, 없으면 이 공식을 단일 함수로 둔다.
+  - Excel char→px 환산: OOXML 표준 공식 `px = trunc(((256·w + trunc(128/MDW)) / 256) · MDW)`, MDW=7 (Calibri 11). 예: w=1.0 → px=7. excelize 내부 환산 헬퍼가 있으면 그것을 사용하고, 없으면 이 공식을 단일 함수로 둔다.
 - **세로높이(EMU)**: 박스 행(기기 8–17, 과제 7–17) 각 높이(point)를 px(`pt × 4/3`)로 환산 후 EMU 합산.
 - **오프셋**: `offX = (boxW − 714375) / 2`, `offY = (boxH − 714375) / 2`. 음수면(1cm처럼 QR>박스) 그대로 사용 → 대칭으로 양옆/위아래 약간 넘침(허용).
 - **앵커**: 박스 좌상단 셀(기기 B8 = col 1·row 7, 과제 B7 = col 1·row 6) 기준 oneCellAnchor. `colOff`/`rowOff`가 셀 폭/높이를 넘으면 실제 셀 + 잔여 오프셋으로 정규화(누적 폭/높이로 from-cell 결정 후 잔여를 colOff/rowOff에 둔다).

@@ -130,7 +130,7 @@ func TestQRCenteredInBox(t *testing.T) {
 			}
 
 			// Compute expected anchor from qrCenterAnchor.
-			colW := label.GetQRConfig(c.docType, c.binder).ColumnWidth
+			colW := label.GetQRConfig(c.binder).ColumnWidth
 			anchorCell, wantOffXpx, wantOffYpx := qrCenterAnchor(c.docType, colW)
 
 			if wantOffXpx < 0 || wantOffYpx < 0 {

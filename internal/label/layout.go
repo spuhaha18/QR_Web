@@ -1,47 +1,37 @@
 package label
 
-// QRConfig is the QR placement config for a given doc type and binder size.
+// QRConfig holds the QR column-width config for a given binder size.
 //
-// ColumnWidth is applied to columns B–M at QR embed time; CellPos is the
-// Excel cell address used as the QR image anchor.
+// ColumnWidth is applied to columns B–M at QR embed time.
+// QR image anchoring and centering is handled by excel.qrCenterAnchor;
+// this package only provides ColumnWidth.
 //
-// Mirrors label_layout.get_qr_config in the Python original.
+// Mirrors label_layout.get_qr_config in the Python original (CellPos removed).
 type QRConfig struct {
 	ColumnWidth float64
-	CellPos     string
 }
 
-// binderEntry holds the per-binder-size layout values from _BINDER_QR_CONFIG.
-type binderEntry struct {
-	columnWidth   float64
-	equipmentCell string
-	projectCell   string
-}
-
-// binderTable mirrors _BINDER_QR_CONFIG in label_layout.py.
-var binderTable = map[int]binderEntry{
-	7: {1.875, "E9", "E8"},
-	5: {1.25, "D9", "D8"},
-	3: {1.0, "D9", "D8"},
-	1: {0.75, "B9", "B9"},
+// binderTable maps binder size (cm) → column width (char units).
+// Mirrors _BINDER_QR_CONFIG in label_layout.py.
+var binderTable = map[int]float64{
+	7: 1.875,
+	5: 1.25,
+	3: 1.0,
+	1: 0.75,
 }
 
 // defaultBinder is the fallback binder size for unknown sizes
 // (_DEFAULT_BINDER_SIZE in label_layout.py).
 const defaultBinder = 3
 
-// GetQRConfig returns the QR placement config for the given docType and binder.
+// GetQRConfig returns the QR config for the given binder size.
 //
-// docType "1" selects the equipment cell; any other value selects the project
-// cell. Unknown binder sizes fall back to defaultBinder (3).
-func GetQRConfig(docType string, binder int) QRConfig {
-	e, ok := binderTable[binder]
+// Only ColumnWidth is returned; QR anchor placement is handled by
+// excel.qrCenterAnchor. Unknown binder sizes fall back to defaultBinder (3).
+func GetQRConfig(binder int) QRConfig {
+	w, ok := binderTable[binder]
 	if !ok {
-		e = binderTable[defaultBinder]
+		w = binderTable[defaultBinder]
 	}
-	cell := e.equipmentCell
-	if docType != "1" {
-		cell = e.projectCell
-	}
-	return QRConfig{ColumnWidth: e.columnWidth, CellPos: cell}
+	return QRConfig{ColumnWidth: w}
 }

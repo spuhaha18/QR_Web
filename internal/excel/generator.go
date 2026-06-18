@@ -313,7 +313,7 @@ func (g *Generator) createAdditionalSheets(f *excelize.File, docType string, doc
 // applyQRCodes sets B–M column width and embeds one 75x75px QR per sheet,
 // centered in the lower bordered box (B8:M17 equipment, B7:M17 project).
 func (g *Generator) applyQRCodes(f *excelize.File, docType string, binder int, qrPNGs [][]byte) error {
-	cfg := label.GetQRConfig(docType, binder)
+	cfg := label.GetQRConfig(binder)
 	sheets := f.GetSheetList()
 
 	if qrPNGs != nil && len(qrPNGs) < len(sheets) {
