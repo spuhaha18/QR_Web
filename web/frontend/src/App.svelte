@@ -3,6 +3,8 @@
   import { qrItems, clearItems, type QrItem } from './lib/qrStore';
   import { showSuccess, showError } from './lib/toast';
   import { submitLabel } from './lib/api';
+  import { validateEquipment, validateProject } from './lib/validation';
+  import { onMount } from 'svelte';
 
   import Toast from './components/Toast.svelte';
   import DocTypeSelector from './components/DocTypeSelector.svelte';
@@ -12,12 +14,11 @@
   import QrDropzone from './components/QrDropzone.svelte';
   import QrThumbnails from './components/QrThumbnails.svelte';
   import ManualModal from './components/ManualModal.svelte';
+  import ReadinessPanel from './components/ReadinessPanel.svelte';
 
   import {
     Settings2,
     QrCode,
-    Printer,
-    Loader2,
     Moon,
     Sun,
     ClipboardList,
@@ -72,50 +73,18 @@
   $: docCount =
     docType === '1' ? Number(equipment.eq_doc_count) || 1 : Number(project.pjt_doc_count) || 1;
 
-  function validateForm(): boolean {
-    if (docType === '1') {
-      const e = equipment;
-      if (
-        !e.eq_number.trim() ||
-        !e.eq_doc_number.trim() ||
-        !e.eq_doc_title.trim() ||
-        !e.eq_doc_department.trim() ||
-        !String(e.eq_doc_count).trim() ||
-        !String(e.eq_doc_year).trim()
-      ) {
-        showError('모든 필드를 채워주세요.');
-        return false;
-      }
-    } else {
-      const p = project;
-      if (
-        !p.pjt_number.trim() ||
-        !p.pjt_test_number.trim() ||
-        !p.pjt_doc_title.trim() ||
-        !p.pjt_doc_writer.trim() ||
-        !String(p.pjt_doc_count).trim()
-      ) {
-        showError('모든 필드를 채워주세요.');
-        return false;
-      }
-    }
-    return true;
-  }
+  let submitAttempted = false;
+  $: errors = docType === '1' ? validateEquipment(equipment) : validateProject(project);
+  $: fieldErrorCount = Object.keys(errors).length;
+  $: qrCount = $qrItems.length;
+  $: isReady = fieldErrorCount === 0 && qrCount === docCount;
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
     if (loading) return;
-    if (!validateForm()) return;
-
+    if (!isReady) { submitAttempted = true; return; }
     const insertion = $qrItems;
-    const n = docCount;
-    if (insertion.length !== n) {
-      showError(`QR 이미지 수(${insertion.length})가 권수(${n})와 다릅니다.`);
-      return;
-    }
-
     const form: LabelForm = { docType, binderSize, equipment, project };
-
     loading = true;
     try {
       await submitLabel(form, insertion, displayItems);
@@ -126,6 +95,13 @@
       loading = false;
     }
   }
+  function resetForm() {
+    equipment = { eq_number: '', eq_doc_number: '', eq_doc_title: '', eq_doc_count: 1, eq_doc_department: '', eq_doc_year: currentYear };
+    project = { pjt_number: '', pjt_test_number: '', pjt_doc_title: '', pjt_doc_writer: '', pjt_doc_count: 1 };
+    clearItems();
+    submitAttempted = false;
+  }
+  onMount(() => { (document.getElementById('eq_number') as HTMLInputElement | null)?.focus(); });
 </script>
 
 <svelte:head>
@@ -165,13 +141,13 @@
       </div>
 
       {#if docType === '1'}
-        <EquipmentFields bind:data={equipment} />
+        <EquipmentFields bind:data={equipment} {errors} showAll={submitAttempted} />
       {:else}
-        <ProjectFields bind:data={project} />
+        <ProjectFields bind:data={project} {errors} showAll={submitAttempted} />
       {/if}
 
       <div class="form-section" id="qr_section">
-        <div class="section-title"><QrCode size={20} /> QR 이미지</div>
+        <div class="section-title"><QrCode size={20} /> QR 이미지 {#if qrCount === docCount}<span class="section-check">✓</span>{/if}</div>
         <p class="section-description">
           바인더 권수만큼 QR 이미지를 추가하세요. 추가한 이미지는 드래그로 순서를 바꿀 수 있으며, 캡션의 권 번호가 인쇄 순서가 됩니다.
         </p>
@@ -181,13 +157,7 @@
       </div>
     </div>
 
-    <button type="submit" class="submit-btn" disabled={loading}>
-      {#if loading}
-        <Loader2 size={20} class="submit-icon spin" /> 생성 중...
-      {:else}
-        <Printer size={20} class="submit-icon" /> 라벨 만들기
-      {/if}
-    </button>
+    <ReadinessPanel {fieldErrorCount} {qrCount} {docCount} {isReady} {loading} onReset={resetForm} />
   </form>
 
   {#if loading}
