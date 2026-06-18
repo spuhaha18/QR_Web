@@ -13,24 +13,29 @@
 </script>
 
 <div class="readiness-panel">
-  <ul class="readiness-checklist">
-    <li class:ok={docOk}>
-      <span class="rc-mark">{docOk ? '✓' : '✕'}</span> 문서 정보{#if !docOk} — 미입력 {fieldErrorCount}칸{/if}
-    </li>
-    <li class:ok={qrOk}>
-      <span class="rc-mark">{qrOk ? '✓' : '✕'}</span> QR 이미지 {qrCount} / {docCount}
-    </li>
-  </ul>
-  <div class="readiness-actions">
+  <div class="readiness-header">
+    <span class="readiness-title">준비 상태</span>
     <button type="button" class="reset-btn" on:click={onReset} disabled={loading}>
-      <RotateCcw size={18} /> 초기화
-    </button>
-    <button type="submit" class="submit-btn" disabled={!isReady || loading}>
-      {#if loading}
-        <Loader2 size={20} class="submit-icon spin" /> 생성 중...
-      {:else}
-        <Printer size={20} class="submit-icon" /> 라벨 만들기
-      {/if}
+      <RotateCcw size={16} /> 초기화
     </button>
   </div>
+
+  <div class="readiness-chips">
+    <span class="status-chip" class:ok={docOk}>
+      <span class="chip-mark" aria-hidden="true">{docOk ? '✓' : '✕'}</span>
+      {#if docOk}문서 정보{:else}문서 미입력 {fieldErrorCount}칸{/if}
+    </span>
+    <span class="status-chip" class:ok={qrOk}>
+      <span class="chip-mark" aria-hidden="true">{qrOk ? '✓' : '✕'}</span>
+      QR {qrCount}/{docCount}
+    </span>
+  </div>
+
+  <button type="submit" class="submit-btn" disabled={!isReady || loading}>
+    {#if loading}
+      <Loader2 size={20} class="submit-icon spin" /> 생성 중...
+    {:else}
+      <Printer size={20} class="submit-icon" /> 라벨 만들기
+    {/if}
+  </button>
 </div>

@@ -1178,13 +1178,18 @@ input.invalid:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-text)
 
 /* ===== 준비상태 패널 (Task 4) ===== */
 .readiness-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface-color); }
-.readiness-checklist { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.readiness-checklist li { font-weight: 600; color: var(--error-text); }
-.readiness-checklist li.ok { color: var(--success-text); }
-.readiness-checklist .rc-mark { font-weight: 800; margin-right: 6px; }
-.readiness-actions { display: flex; gap: 12px; align-items: stretch; }
-.readiness-actions .submit-btn { flex: 1; }
-.reset-btn { display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; border: 1px solid var(--border-color); border-radius: 10px; background: transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; }
+
+.readiness-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.readiness-title { font-weight: 700; color: var(--text-muted); font-size: 0.95rem; }
+
+.readiness-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.status-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; color: var(--error-text); background: color-mix(in srgb, var(--error-text) 12%, transparent); border: 1px solid color-mix(in srgb, var(--error-text) 30%, transparent); }
+.status-chip.ok { color: var(--success-text); background: color-mix(in srgb, var(--success-text) 12%, transparent); border-color: color-mix(in srgb, var(--success-text) 30%, transparent); }
+.status-chip .chip-mark { font-weight: 800; }
+
+.reset-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); font-weight: 600; font-size: 0.9rem; cursor: pointer; font-family: inherit; }
 .reset-btn:hover:not(:disabled) { background: var(--border-color); }
 .reset-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.readiness-panel .submit-btn { width: 100%; max-width: none; margin: 0; }
 
