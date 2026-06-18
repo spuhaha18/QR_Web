@@ -642,15 +642,20 @@ select {
 }
 
 .qr-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 8px 0 4px;
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #888;
 }
 
-.qr-counter.ok   { color: #2e7d32; }
-.qr-counter.over { color: #c62828; }
-.qr-counter.under { color: #e65100; }
+.qr-counter-hint { font-size: 0.85rem; font-weight: 600; }
+
+.qr-counter.under { color: var(--text-muted); }
+.qr-counter.ok    { color: #16a34a; }
+.qr-counter.over  { color: #dc2626; }
 
 .qr-thumbnails {
   list-style: none;

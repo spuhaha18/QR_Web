@@ -38,7 +38,16 @@
     count === docCount ? 'ok' : count > docCount ? 'over' : 'under';
 </script>
 
-<div class="qr-counter {counterClass}">{count} / {docCount}</div>
+<div class="qr-counter {counterClass}">
+  <span class="qr-counter-num">{count} / {docCount}</span>
+  {#if count < docCount}
+    <span class="qr-counter-hint">{docCount - count}장 더 필요</span>
+  {:else if count > docCount}
+    <span class="qr-counter-hint">{count - docCount}장 초과</span>
+  {:else}
+    <span class="qr-counter-hint">준비됨 ✓</span>
+  {/if}
+</div>
 
 <ul
   class="qr-thumbnails"
