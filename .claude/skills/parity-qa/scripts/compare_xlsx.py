@@ -9,15 +9,38 @@ usage: python compare_xlsx.py golden.xlsx candidate.xlsx
 """
 import sys
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+
+
+def col_widths(ws):
+    """열너비를 개별 열 letter 단위로 정규화한다.
+
+    excelize는 동일폭 인접 열을 하나의 <col min=a max=b>로 coalesce하고,
+    openpyxl 로더는 이를 첫 열(B) 한 항목(min=2 max=13)으로만 등록한다.
+    openpyxl(골든)은 보통 열당 1개(min==max)다. 양쪽 모두 ColumnDimension의
+    min..max 범위를 각 열 letter로 전개해 동등 비교한다. 너비값 비교는 유지된다
+    (전개는 동등 변환일 뿐 — 폭이 다르면 해당 열에서 MISMATCH가 잡힌다).
+    """
+    out = {}
+    for dim in ws.column_dimensions.values():
+        if dim.width is None:
+            continue
+        w = round(dim.width, 4)
+        # min/max가 없으면(드물게) 키를 그대로 단일 열로 취급
+        lo = dim.min if dim.min is not None else None
+        hi = dim.max if dim.max is not None else None
+        if lo is None or hi is None:
+            continue
+        for idx in range(lo, hi + 1):
+            out[get_column_letter(idx)] = w
+    return out
 
 
 def sheet_facts(ws):
     facts = {}
     facts["title"] = ws.title
     facts["merges"] = sorted(str(m) for m in ws.merged_cells.ranges)
-    facts["col_widths"] = {
-        k: round(v.width, 4) for k, v in ws.column_dimensions.items() if v.width is not None
-    }
+    facts["col_widths"] = col_widths(ws)
     facts["row_heights"] = {
         k: round(v.height, 4) for k, v in ws.row_dimensions.items() if v.height is not None
     }
