@@ -107,11 +107,11 @@ func cellToColRow(t *testing.T, cell string) (col, row int) {
 func TestQRCenteredInBox(t *testing.T) {
 	cases := []struct {
 		name    string
-		docType string
-		binder  int
+		docType label.DocType
+		binder  label.BinderSize
 	}{
-		{"eq3", "1", 3}, {"eq5", "1", 5}, {"eq7", "1", 7},
-		{"pj3", "2", 3}, {"pj5", "2", 5}, {"pj7", "2", 7},
+		{"eq3", label.DocTypeEquipment, 3}, {"eq5", label.DocTypeEquipment, 5}, {"eq7", label.DocTypeEquipment, 7},
+		{"pj3", label.DocTypeProject, 3}, {"pj5", label.DocTypeProject, 5}, {"pj7", label.DocTypeProject, 7},
 	}
 	g := &Generator{}
 	for _, c := range cases {
@@ -124,13 +124,19 @@ func TestQRCenteredInBox(t *testing.T) {
 				"pjt_doc_writer": "W", "pjt_doc_count": "1",
 			}
 			lbl := label.MakeLabel(data, c.docType)
-			out, _, err := g.CreateLabelExcel(c.docType, c.binder, lbl, [][]byte{smallPNG(t)})
+			// data carries string counts ("1"), which MakeLabel's int-only
+			// coercion reads as 0 → a single sheet. One QR for that one sheet.
+			qrs, err := label.NewQRImageSet([][]byte{smallPNG(t)}, 1)
+			if err != nil {
+				t.Fatalf("NewQRImageSet: %v", err)
+			}
+			out, _, err := g.CreateLabelExcel(c.docType, c.binder, lbl, qrs)
 			if err != nil {
 				t.Fatalf("CreateLabelExcel: %v", err)
 			}
 
 			// Compute expected anchor from qrCenterAnchor.
-			colW := label.GetQRConfig(c.binder).ColumnWidth
+			colW := c.binder.ColumnWidth()
 			anchorCell, wantOffXpx, wantOffYpx := qrCenterAnchor(c.docType, colW)
 
 			if wantOffXpx < 0 || wantOffYpx < 0 {

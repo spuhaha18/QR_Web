@@ -11,38 +11,42 @@ import (
 	"time"
 )
 
-// ErrValidation is the sentinel wrapped by every validation failure. Callers
-// use errors.Is(err, ErrValidation) to distinguish a 400-class request error
-// from an internal 500. The wrapped message text is the Korean user-facing
-// string, preserved byte-for-byte from the Flask original.
+// ErrValidation is the sentinel a caller matches with errors.Is to distinguish
+// a 400-class request error from an internal 500. It is never returned
+// directly; *ValidationError carries the user-facing message and reports itself
+// as ErrValidation.
 var ErrValidation = errors.New("validation error")
 
-// validationErr builds a validation error whose Error() text is exactly the
-// Korean message (matching Flask's ValidationError(str)) while still satisfying
-// errors.Is(err, ErrValidation).
-func validationErr(msg string) error {
-	return fmt.Errorf("%w: %s", ErrValidation, msg)
+// ValidationError carries the exact Korean user-facing message for a failed
+// request (matching Flask's ValidationError(str)). Its Error() text IS the
+// message — no sentinel prefix to strip — so handlers read .Msg (or
+// ValidationMessage) without parsing the string.
+type ValidationError struct {
+	Msg string
 }
 
-// ValidationMessage returns the bare Korean message for a validation error,
-// stripping the sentinel prefix so handlers can emit the exact original string
-// (e.g. jsonify({'error': str(e)})).
+func (e *ValidationError) Error() string { return e.Msg }
+
+// Is reports the sentinel match so errors.Is(err, ErrValidation) holds.
+func (e *ValidationError) Is(target error) bool { return target == ErrValidation }
+
+func validationErr(msg string) error {
+	return &ValidationError{Msg: msg}
+}
+
+// ValidationMessage returns the bare Korean message for a validation error.
+// Kept for the handler/test surface; it now unwraps the typed error instead of
+// stripping a string prefix.
 func ValidationMessage(err error) string {
 	if err == nil {
 		return ""
 	}
-	const prefix = "validation error: "
-	s := err.Error()
-	if strings.HasPrefix(s, prefix) {
-		return s[len(prefix):]
+	var ve *ValidationError
+	if errors.As(err, &ve) {
+		return ve.Msg
 	}
-	return s
+	return err.Error()
 }
-
-var (
-	validDocTypes    = map[string]bool{"1": true, "2": true}
-	validBinderSizes = map[int]bool{1: true, 3: true, 5: true, 7: true}
-)
 
 // EquipmentRequiredFields / ProjectRequiredFields mirror the Python constants
 // (exported so tests can iterate them like the pytest suite does).
@@ -155,38 +159,29 @@ func (l ProjectLabel) DocCount() int     { return l.PjtDocCount }
 func (l ProjectLabel) TitleCell() string { return ProjectTitleCell }
 
 // ParseLabelRequest validates and parses a label creation request from a flat
-// form map. Returns the concrete Label, the doc type ("1"/"2"), the binder
-// size, or a validation error wrapping ErrValidation. Ported from
-// document_schema.parse_label_request + make_label.
-func ParseLabelRequest(form map[string]string, docType, binderSizeRaw string) (Label, string, int, error) {
-	if !validDocTypes[docType] {
-		return nil, "", 0, validationErr("잘못된 문서 종류입니다.")
-	}
-
-	binderSize, err := strconv.Atoi(strings.TrimSpace(binderSizeRaw))
+// form map. Returns the concrete Label, the typed DocType, the validated
+// BinderSize, or a validation error matching ErrValidation. Validation order
+// (doc type → binder size → required fields) is preserved from the Flask
+// original. Ported from document_schema.parse_label_request + make_label.
+func ParseLabelRequest(form map[string]string, docTypeRaw, binderSizeRaw string) (Label, DocType, BinderSize, error) {
+	dt, err := ParseDocType(docTypeRaw)
 	if err != nil {
-		return nil, "", 0, validationErr("잘못된 바인더 크기입니다.")
-	}
-	if !validBinderSizes[binderSize] {
-		return nil, "", 0, validationErr("잘못된 바인더 크기입니다.")
+		return nil, 0, 0, err
 	}
 
-	if docType == "2" && binderSize == 1 {
-		return nil, "", 0, validationErr("과제 문서의 경우 3cm 미만 바인더 크기를 선택할 수 없습니다.")
+	binder, err := ParseBinderSize(binderSizeRaw, dt)
+	if err != nil {
+		return nil, 0, 0, err
 	}
 
-	required := EquipmentRequiredFields
-	if docType == "2" {
-		required = ProjectRequiredFields
-	}
-	for _, field := range required {
+	for _, field := range dt.RequiredFields() {
 		// Python: `if not form_data.get(field)` — empty string is falsy.
 		if form[field] == "" {
-			return nil, "", 0, validationErr(fmt.Sprintf("필수 필드가 누락되었습니다: %s", field))
+			return nil, 0, 0, validationErr(fmt.Sprintf("필수 필드가 누락되었습니다: %s", field))
 		}
 	}
 
-	if docType == "1" {
+	if dt == DocTypeEquipment {
 		lbl := EquipmentLabel{
 			EqNumber:        ValidateAndCleanInput(form["eq_number"]),
 			EqDocNumber:     ValidateAndCleanInput(form["eq_doc_number"]),
@@ -195,7 +190,7 @@ func ParseLabelRequest(form map[string]string, docType, binderSizeRaw string) (L
 			EqDocDepartment: ValidateAndCleanInput(form["eq_doc_department"]),
 			EqDocYear:       SafeIntConversion(form["eq_doc_year"], time.Now().Year()),
 		}
-		return lbl, docType, binderSize, nil
+		return lbl, dt, binder, nil
 	}
 
 	lbl := ProjectLabel{
@@ -205,7 +200,7 @@ func ParseLabelRequest(form map[string]string, docType, binderSizeRaw string) (L
 		PjtDocWriter:  ValidateAndCleanInput(form["pjt_doc_writer"]),
 		PjtDocCount:   SafeIntConversion(form["pjt_doc_count"], 1),
 	}
-	return lbl, docType, binderSize, nil
+	return lbl, dt, binder, nil
 }
 
 // ValidateAndCleanInput strips surrounding whitespace and removes \n / \r.
@@ -271,8 +266,8 @@ func GenerateTimestampFilename(base, ext string) string {
 // MakeLabel is a factory kept for parity with document_schema.make_label; it
 // constructs the appropriate Label from a parsed value map. ParseLabelRequest is
 // the primary entry point, but this mirrors the Python test surface.
-func MakeLabel(data map[string]any, docType string) Label {
-	if docType == "1" {
+func MakeLabel(data map[string]any, docType DocType) Label {
+	if docType == DocTypeEquipment {
 		return EquipmentLabel{
 			EqNumber:        asString(data["eq_number"]),
 			EqDocNumber:     asString(data["eq_doc_number"]),

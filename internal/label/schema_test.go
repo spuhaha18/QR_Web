@@ -11,12 +11,12 @@ import (
 // validEquipment mirrors tests/test_document_schema.py VALID_EQUIPMENT.
 func validEquipment() map[string]string {
 	return map[string]string{
-		"eq_number":        "EQ001",
-		"eq_doc_number":    "DOC-001",
-		"eq_doc_title":     "장비 유지 관리 절차서",
-		"eq_doc_count":     "3",
+		"eq_number":         "EQ001",
+		"eq_doc_number":     "DOC-001",
+		"eq_doc_title":      "장비 유지 관리 절차서",
+		"eq_doc_count":      "3",
 		"eq_doc_department": "품질관리부",
-		"eq_doc_year":      "2024",
+		"eq_doc_year":       "2024",
 	}
 }
 
@@ -38,11 +38,11 @@ func TestParseEquipment_ValidReturnsDataDocTypeBinder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if docType != "1" {
-		t.Errorf("docType = %q, want 1", docType)
+	if docType != DocTypeEquipment {
+		t.Errorf("docType = %v, want equipment", docType)
 	}
-	if binder != 3 {
-		t.Errorf("binder = %d, want 3", binder)
+	if binder.Int() != 3 {
+		t.Errorf("binder = %d, want 3", binder.Int())
 	}
 	eq, ok := lbl.(EquipmentLabel)
 	if !ok {
@@ -62,8 +62,8 @@ func TestParseEquipment_AllBinderSizesAccepted(t *testing.T) {
 		if err != nil {
 			t.Fatalf("size %d: unexpected error: %v", size, err)
 		}
-		if bs != size {
-			t.Errorf("binder = %d, want %d", bs, size)
+		if bs.Int() != size {
+			t.Errorf("binder = %d, want %d", bs.Int(), size)
 		}
 	}
 }
@@ -90,8 +90,8 @@ func TestParseProject_ValidReturnsData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if docType != "2" {
-		t.Errorf("docType = %q, want 2", docType)
+	if docType != DocTypeProject {
+		t.Errorf("docType = %v, want project", docType)
 	}
 	pj, ok := lbl.(ProjectLabel)
 	if !ok {
@@ -314,8 +314,8 @@ func TestMakeLabel_Equipment(t *testing.T) {
 		"eq_number": "EQ001", "eq_doc_number": "DOC-001", "eq_doc_title": "t",
 		"eq_doc_count": 3, "eq_doc_department": "d", "eq_doc_year": 2024,
 	}
-	if _, ok := MakeLabel(data, "1").(EquipmentLabel); !ok {
-		t.Error("MakeLabel('1') did not return EquipmentLabel")
+	if _, ok := MakeLabel(data, DocTypeEquipment).(EquipmentLabel); !ok {
+		t.Error("MakeLabel(equipment) did not return EquipmentLabel")
 	}
 }
 
@@ -324,8 +324,8 @@ func TestMakeLabel_Project(t *testing.T) {
 		"pjt_number": "PJT-001", "pjt_test_number": "TEST-001", "pjt_doc_title": "t",
 		"pjt_doc_writer": "w", "pjt_doc_count": 2,
 	}
-	if _, ok := MakeLabel(data, "2").(ProjectLabel); !ok {
-		t.Error("MakeLabel('2') did not return ProjectLabel")
+	if _, ok := MakeLabel(data, DocTypeProject).(ProjectLabel); !ok {
+		t.Error("MakeLabel(project) did not return ProjectLabel")
 	}
 }
 
@@ -338,13 +338,13 @@ func TestSafeIntConversion(t *testing.T) {
 		out int
 	}{
 		{"3", 1, 3},
-		{"", 1, 1},      // empty -> default
-		{"abc", 1, 1},   // non-digit -> default
-		{"-5", 1, 1},    // sign -> not isdigit -> default
-		{"2.5", 1, 1},   // dot -> not isdigit -> default
-		{"0", 1, 1},     // isdigit, but max(1, 0) -> 1
+		{"", 1, 1},    // empty -> default
+		{"abc", 1, 1}, // non-digit -> default
+		{"-5", 1, 1},  // sign -> not isdigit -> default
+		{"2.5", 1, 1}, // dot -> not isdigit -> default
+		{"0", 1, 1},   // isdigit, but max(1, 0) -> 1
 		{"10", 1, 10},
-		{"abc", 7, 7},   // non-digit -> custom default
+		{"abc", 7, 7}, // non-digit -> custom default
 	}
 	for _, c := range cases {
 		if got := SafeIntConversion(c.in, c.def); got != c.out {

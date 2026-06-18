@@ -3,6 +3,8 @@ package excel
 import (
 	"math"
 	"testing"
+
+	"qrweb/internal/label"
 )
 
 func TestColWidthToPx(t *testing.T) {
@@ -40,7 +42,7 @@ func TestQRCenterAnchor_Equipment3cm(t *testing.T) {
 	// QR 절대 중앙: (3+5+37.5=45.5, 489+8+37.5=534.5)
 	// 박스 중앙:    (3+84/2=45.0,  489+90/2=534.0)
 	// 오차: |dx|=0.5px, |dy|=0.5px  => 모두 ±1px 이내
-	cell, offX, offY := qrCenterAnchor("1", 1.0)
+	cell, offX, offY := qrCenterAnchor(label.DocTypeEquipment, 1.0)
 
 	// 앵커 셀 단언 — 위치 회귀 시 실패해야 함
 	if cell != "B8" {
@@ -107,7 +109,7 @@ func TestQRCenterAnchor_Equipment3cm(t *testing.T) {
 func TestQRCenterAnchor_1cmClampsLeft(t *testing.T) {
 	// 1cm: cols B-M each 0.75->5px => box width 60px < 75. targetX = 3 + (60-75)/2 = -4.5 -> clamp 0.
 	// => anchor at column A, offX 0 (QR left at sheet edge).
-	cell, offX, offY := qrCenterAnchor("1", 0.75)
+	cell, offX, offY := qrCenterAnchor(label.DocTypeEquipment, 0.75)
 	if cell[:1] != "A" {
 		t.Errorf("1cm QR should anchor in column A (clamped), got cell %s", cell)
 	}

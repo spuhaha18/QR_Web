@@ -3,6 +3,8 @@ package excel
 import (
 	"math"
 	"strconv"
+
+	"qrweb/internal/label"
 )
 
 // qrSizePx is the fixed QR side length in pixels (75x75).
@@ -23,21 +25,18 @@ func rowHeightToPx(h float64) float64 {
 	return math.Round(h * 4.0 / 3.0)
 }
 
-// rowHeights holds row heights (points) for rows 1..17 (index 1-based; index 0
-// unused). Mirrors _setup_basic_layout in excel_generator.py: rows 1-7 explicit,
-// rows 8-17 = 6.75.
-var rowHeights = func() []float64 {
-	h := make([]float64, 18)
-	explicit := map[int]float64{1: 2.25, 2: 27, 3: 27, 4: 216, 5: 40.5, 6: 27, 7: 27}
-	for r := 1; r <= 17; r++ {
-		if v, ok := explicit[r]; ok {
-			h[r] = v
-		} else {
-			h[r] = 6.75
-		}
-	}
-	return h
-}()
+// rowHeights is the canonical Sheet-1 row-height table (points), index = row
+// number (1-based; index 0 unused), rows 1..18. It is the single source shared
+// by setupBasicLayout (which sets the heights) and the geometry math below
+// (which sums them for QR centering), so the two can never drift. Rows 1-7 and
+// 18 are explicit; rows 8-17 are the 6.75pt QR-box rows.
+var rowHeights = []float64{
+	0,                               // 0 (unused)
+	2.25, 27, 27, 216, 40.5, 27, 27, // rows 1-7
+	6.75, 6.75, 6.75, 6.75, 6.75, // rows 8-12
+	6.75, 6.75, 6.75, 6.75, 6.75, // rows 13-17
+	2.25, // row 18
+}
 
 // colLetters for the columns we may anchor in: A..M.
 var colLetters = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"}
@@ -47,10 +46,11 @@ var colLetters = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
 // equipment (docType "1"), B7:M17 for project. colW is the B–M column width.
 //
 // Horizontal: box spans columns B..M (12 cols of width colW); box left is the
-// right edge of column A (0.375). Vertical: box top row is 8 (equipment) or 7
-// (project), bottom row 17. Targets are clamped to >=0 (a QR wider/taller than
-// its box overflows symmetrically until it hits the sheet edge).
-func qrCenterAnchor(docType string, colW float64) (cell string, offX, offY int) {
+// right edge of column A (0.375). Vertical: box top row comes from the doc
+// type's Layout (8 equipment, 7 project), bottom row 17. Targets are clamped to
+// >=0 (a QR wider/taller than its box overflows symmetrically until it hits the
+// sheet edge).
+func qrCenterAnchor(dt label.DocType, colW float64) (cell string, offX, offY int) {
 	const colA = 0.375
 	// Horizontal geometry.
 	boxLeftPx := colWidthToPx(colA)
@@ -60,10 +60,7 @@ func qrCenterAnchor(docType string, colW float64) (cell string, offX, offY int) 
 		targetX = 0
 	}
 	// Vertical geometry.
-	topRow := 8
-	if docType != "1" {
-		topRow = 7
-	}
+	topRow := dt.Layout().QRBoxTopRow
 	boxTopPx := 0.0
 	for r := 1; r < topRow; r++ {
 		boxTopPx += rowHeightToPx(rowHeights[r])

@@ -63,22 +63,22 @@ func projLabel(count int) label.Label {
 }
 
 type matrixCase struct {
-	docType string
-	binder  int
+	docType label.DocType
+	binder  label.BinderSize
 	count   int
 	lbl     label.Label
 }
 
 func parityMatrix() []matrixCase {
 	var cases []matrixCase
-	for _, binder := range []int{1, 3, 5, 7} {
+	for _, binder := range []label.BinderSize{1, 3, 5, 7} {
 		for _, count := range []int{1, 3} {
-			cases = append(cases, matrixCase{"1", binder, count, equipLabel(count)})
+			cases = append(cases, matrixCase{label.DocTypeEquipment, binder, count, equipLabel(count)})
 		}
 	}
-	for _, binder := range []int{3, 5, 7} {
+	for _, binder := range []label.BinderSize{3, 5, 7} {
 		for _, count := range []int{1, 3} {
-			cases = append(cases, matrixCase{"2", binder, count, projLabel(count)})
+			cases = append(cases, matrixCase{label.DocTypeProject, binder, count, projLabel(count)})
 		}
 	}
 	return cases
@@ -108,9 +108,13 @@ func TestGoldenParity(t *testing.T) {
 	gen := NewGenerator()
 
 	for _, c := range parityMatrix() {
-		tag := fmt.Sprintf("t%s_b%d_n%d", c.docType, c.binder, c.count)
+		tag := fmt.Sprintf("t%s_b%d_n%d", c.docType.Code(), c.binder.Int(), c.count)
 		t.Run(tag, func(t *testing.T) {
-			data, _, err := gen.CreateLabelExcel(c.docType, c.binder, c.lbl, dummyPNGs(t, c.count))
+			qrs, err := label.NewQRImageSet(dummyPNGs(t, c.count), c.count)
+			if err != nil {
+				t.Fatalf("NewQRImageSet: %v", err)
+			}
+			data, _, err := gen.CreateLabelExcel(c.docType, c.binder, c.lbl, qrs)
 			if err != nil {
 				t.Fatalf("CreateLabelExcel: %v", err)
 			}
@@ -132,7 +136,11 @@ func TestGoldenParity(t *testing.T) {
 // TestExcelPasteMode is a structural smoke test (no python dependency).
 func TestExcelPasteMode(t *testing.T) {
 	gen := NewGenerator()
-	data, fn, err := gen.CreateLabelExcel("1", 3, equipLabel(3), dummyPNGs(t, 3))
+	qrs, err := label.NewQRImageSet(dummyPNGs(t, 3), 3)
+	if err != nil {
+		t.Fatalf("NewQRImageSet: %v", err)
+	}
+	data, fn, err := gen.CreateLabelExcel(label.DocTypeEquipment, 3, equipLabel(3), qrs)
 	if err != nil {
 		t.Fatalf("CreateLabelExcel: %v", err)
 	}
@@ -146,7 +154,11 @@ func TestExcelPasteMode(t *testing.T) {
 
 func TestExcelProjectLabel(t *testing.T) {
 	gen := NewGenerator()
-	_, fn, err := gen.CreateLabelExcel("2", 5, projLabel(1), dummyPNGs(t, 1))
+	qrs, err := label.NewQRImageSet(dummyPNGs(t, 1), 1)
+	if err != nil {
+		t.Fatalf("NewQRImageSet: %v", err)
+	}
+	_, fn, err := gen.CreateLabelExcel(label.DocTypeProject, 5, projLabel(1), qrs)
 	if err != nil {
 		t.Fatalf("CreateLabelExcel: %v", err)
 	}

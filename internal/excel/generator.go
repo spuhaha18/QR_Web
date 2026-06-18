@@ -24,10 +24,10 @@ const sheet1 = "Sheet 1"
 // CreateLabelExcel builds the label workbook and returns its bytes plus the
 // timestamped filename.
 //
-// docType: "1" (equipment) | "2" (project). binder: 1|3|5|7. lbl: parsed label.
-// qrPNGs: one PNG per sheet (paste mode), indexed by sheet order; QR i is
-// embedded into sheet i.
-func (g *Generator) CreateLabelExcel(docType string, binder int, lbl label.Label, qrPNGs [][]byte) (data []byte, filename string, err error) {
+// dt: equipment or project. binder: validated thickness. lbl: parsed label.
+// qrs: one validated PNG per sheet, in sheet order (QR i embeds into sheet i);
+// the QRImageSet type guarantees the count matches lbl.DocCount().
+func (g *Generator) CreateLabelExcel(dt label.DocType, binder label.BinderSize, lbl label.Label, qrs label.QRImageSet) (data []byte, filename string, err error) {
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
 
@@ -38,19 +38,19 @@ func (g *Generator) CreateLabelExcel(docType string, binder int, lbl label.Label
 	docCount := lbl.DocCount()
 
 	// --- Sheet 1: full layout ---
-	if err = g.buildSheet1(f, docType, lbl); err != nil {
+	if err = g.buildSheet1(f, dt, lbl); err != nil {
 		return nil, "", err
 	}
 
 	// --- additional sheets 2..N (copy of Sheet 1 with i/N overrides) ---
 	if docCount > 1 {
-		if err = g.createAdditionalSheets(f, docType, docCount); err != nil {
+		if err = g.createAdditionalSheets(f, dt, docCount); err != nil {
 			return nil, "", err
 		}
 	}
 
 	// --- QR embed: every sheet, after all sheets exist (Python order) ---
-	if err = g.applyQRCodes(f, docType, binder, qrPNGs); err != nil {
+	if err = g.applyQRCodes(f, dt, binder, qrs); err != nil {
 		return nil, "", err
 	}
 
@@ -69,7 +69,7 @@ func (g *Generator) CreateLabelExcel(docType string, binder int, lbl label.Label
 
 // buildSheet1 constructs Sheet 1: basic layout, common borders, then
 // equipment- or project-specific layout, then flushes synthesized styles.
-func (g *Generator) buildSheet1(f *excelize.File, docType string, lbl label.Label) error {
+func (g *Generator) buildSheet1(f *excelize.File, dt label.DocType, lbl label.Label) error {
 	sb := newStyleBuilder(f)
 
 	if err := setupBasicLayout(f); err != nil {
@@ -77,12 +77,12 @@ func (g *Generator) buildSheet1(f *excelize.File, docType string, lbl label.Labe
 	}
 	applyCommonBorders(sb)
 
-	if docType == "1" {
-		if err := setupEquipmentDocument(f, sb, lbl); err != nil {
+	if dt == label.DocTypeEquipment {
+		if err := setupEquipmentDocument(f, sb, dt, lbl); err != nil {
 			return err
 		}
 	} else {
-		if err := setupProjectDocument(f, sb, lbl); err != nil {
+		if err := setupProjectDocument(f, sb, dt, lbl); err != nil {
 			return err
 		}
 	}
@@ -92,21 +92,13 @@ func (g *Generator) buildSheet1(f *excelize.File, docType string, lbl label.Labe
 }
 
 // setupBasicLayout sets row heights, A/N column widths, and the B2..B6 merges
-// (mirrors _setup_basic_layout).
+// (mirrors _setup_basic_layout). Row heights come from the package-shared
+// rowHeights table (also consumed by the geometry math), so the two never drift.
 func setupBasicLayout(f *excelize.File) error {
-	rowHeights := map[int]float64{1: 2.25, 2: 27, 3: 27, 4: 216, 5: 40.5, 6: 27, 7: 27}
-	for r, h := range rowHeights {
-		if err := f.SetRowHeight(sheet1, r, h); err != nil {
+	for r := 1; r <= 18; r++ {
+		if err := f.SetRowHeight(sheet1, r, rowHeights[r]); err != nil {
 			return err
 		}
-	}
-	for r := 8; r <= 17; r++ {
-		if err := f.SetRowHeight(sheet1, r, 6.75); err != nil {
-			return err
-		}
-	}
-	if err := f.SetRowHeight(sheet1, 18, 2.25); err != nil {
-		return err
 	}
 
 	if err := f.SetColWidth(sheet1, "A", "A", 0.375); err != nil {
@@ -144,25 +136,29 @@ func applyCommonBorders(sb *styleBuilder) {
 }
 
 // setupEquipmentDocument mirrors _setup_equipment_document: B7:M7 merge,
-// additional borders, cell values + fonts.
-func setupEquipmentDocument(f *excelize.File, sb *styleBuilder, lbl label.Label) error {
+// additional borders, cell values + fonts. The QR box top row comes from the
+// doc type's Layout (8 for equipment), the single source also read by the
+// geometry math — the literal cell strings are derived from it, not hardcoded.
+func setupEquipmentDocument(f *excelize.File, sb *styleBuilder, dt label.DocType, lbl label.Label) error {
 	if err := f.MergeCell(sheet1, "B7", "M7"); err != nil {
 		return err
 	}
 
+	top := dt.Layout().QRBoxTopRow
 	// additional_borders, in Python source order:
-	//   B2:M7 thin (full replace) ; B8:M8 top ; B8:B17 left ; M8:M17 right ; B17:M17 bottom
+	//   B2:M7 thin (full replace) ; B{top}:M{top} top ; B{top}:B17 left ;
+	//   M{top}:M17 right ; B17:M17 bottom
 	sb.setBorderRange("B2:M7", map[string]string{"left": "thin", "right": "thin", "top": "thin", "bottom": "thin"})
-	sb.setBorderRange("B8:M8", map[string]string{"top": "thin"})
-	sb.setBorderRange("B8:B17", map[string]string{"left": "thin"})
-	sb.setBorderRange("M8:M17", map[string]string{"right": "thin"})
+	sb.setBorderRange(fmt.Sprintf("B%d:M%d", top, top), map[string]string{"top": "thin"})
+	sb.setBorderRange(fmt.Sprintf("B%d:B17", top), map[string]string{"left": "thin"})
+	sb.setBorderRange(fmt.Sprintf("M%d:M17", top), map[string]string{"right": "thin"})
 	sb.setBorderRange("B17:M17", map[string]string{"bottom": "thin"})
 
 	return applyCellValues(f, sb, lbl)
 }
 
 // setupProjectDocument mirrors _setup_project_document.
-func setupProjectDocument(f *excelize.File, sb *styleBuilder, lbl label.Label) error {
+func setupProjectDocument(f *excelize.File, sb *styleBuilder, dt label.DocType, lbl label.Label) error {
 	// additional rows
 	for r, h := range map[int]float64{20: 2.25, 21: 48, 22: 34.5, 23: 27.75, 24: 2.25} {
 		if err := f.SetRowHeight(sheet1, r, h); err != nil {
@@ -190,7 +186,7 @@ func setupProjectDocument(f *excelize.File, sb *styleBuilder, lbl label.Label) e
 		return err
 	}
 
-	applyProjectBorders(f, sb)
+	applyProjectBorders(f, sb, dt)
 
 	// values
 	for addr, v := range lbl.CellValues() {
@@ -214,11 +210,14 @@ func setupProjectDocument(f *excelize.File, sb *styleBuilder, lbl label.Label) e
 	return setPrintArea(f, sheet1)
 }
 
-// applyProjectBorders replays _apply_project_borders in exact source order.
-func applyProjectBorders(f *excelize.File, sb *styleBuilder) {
-	sb.setBorderRange("B7:M7", map[string]string{"top": "thin"})
-	sb.setBorderRange("B7:B17", map[string]string{"left": "thin"})
-	sb.setBorderRange("M7:M17", map[string]string{"right": "thin"})
+// applyProjectBorders replays _apply_project_borders in exact source order. The
+// QR box top row comes from the doc type's Layout (7 for project), the single
+// source also read by the geometry math.
+func applyProjectBorders(f *excelize.File, sb *styleBuilder, dt label.DocType) {
+	top := dt.Layout().QRBoxTopRow
+	sb.setBorderRange(fmt.Sprintf("B%d:M%d", top, top), map[string]string{"top": "thin"})
+	sb.setBorderRange(fmt.Sprintf("B%d:B17", top), map[string]string{"left": "thin"})
+	sb.setBorderRange(fmt.Sprintf("M%d:M17", top), map[string]string{"right": "thin"})
 	sb.setBorderRange("B17:M17", map[string]string{"bottom": "thin"})
 
 	sb.setBorderCell("B17", map[string]string{"left": "thin", "bottom": "thin"})
@@ -280,11 +279,12 @@ func setCellValue(f *excelize.File, addr string, v any) error {
 //
 // CopySheet preserves merges, dimensions, and cell styles; QR images are added
 // later per sheet, so image fidelity is not relied upon here.
-func (g *Generator) createAdditionalSheets(f *excelize.File, docType string, docCount int) error {
+func (g *Generator) createAdditionalSheets(f *excelize.File, dt label.DocType, docCount int) error {
 	srcIdx, err := f.GetSheetIndex(sheet1)
 	if err != nil {
 		return err
 	}
+	layout := dt.Layout()
 	for i := 2; i <= docCount; i++ {
 		name := fmt.Sprintf("Sheet %d", i)
 		toIdx, nerr := f.NewSheet(name)
@@ -295,13 +295,15 @@ func (g *Generator) createAdditionalSheets(f *excelize.File, docType string, doc
 			return cerr
 		}
 
-		if err := f.SetCellStr(name, "B5", fmt.Sprintf("%d/%d", i, docCount)); err != nil {
-			return err
-		}
-		if docType == "2" {
-			if err := f.SetCellStr(name, "S23", fmt.Sprintf("%d/%d", i, docCount)); err != nil {
+		// Override the volume marker in every cell the layout declares (B5
+		// always; project mirrors it in S23).
+		marker := fmt.Sprintf("%d/%d", i, docCount)
+		for _, cell := range layout.CountCells {
+			if err := f.SetCellStr(name, cell, marker); err != nil {
 				return err
 			}
+		}
+		if layout.HasPrintArea {
 			if err := setPrintArea(f, name); err != nil {
 				return err
 			}
@@ -311,29 +313,24 @@ func (g *Generator) createAdditionalSheets(f *excelize.File, docType string, doc
 }
 
 // applyQRCodes sets B–M column width and embeds one 75x75px QR per sheet,
-// centered in the lower bordered box (B8:M17 equipment, B7:M17 project).
-func (g *Generator) applyQRCodes(f *excelize.File, docType string, binder int, qrPNGs [][]byte) error {
-	cfg := label.GetQRConfig(binder)
+// centered in the lower bordered box (B8:M17 equipment, B7:M17 project). The
+// QRImageSet guarantees one image per sheet, so no length check is needed here.
+func (g *Generator) applyQRCodes(f *excelize.File, dt label.DocType, binder label.BinderSize, qrs label.QRImageSet) error {
+	colWidth := binder.ColumnWidth()
 	sheets := f.GetSheetList()
-
-	if qrPNGs != nil && len(qrPNGs) < len(sheets) {
-		return fmt.Errorf("qrPNGs has %d entries but %d sheets expected", len(qrPNGs), len(sheets))
-	}
+	images := qrs.Images()
 
 	for _, s := range sheets {
-		if err := f.SetColWidth(s, "B", "M", cfg.ColumnWidth); err != nil {
+		if err := f.SetColWidth(s, "B", "M", colWidth); err != nil {
 			return err
 		}
 	}
 
 	// Center the QR in the lower bordered box (B8:M17 equipment, B7:M17 project).
-	anchorCell, offX, offY := qrCenterAnchor(docType, cfg.ColumnWidth)
+	anchorCell, offX, offY := qrCenterAnchor(dt, colWidth)
 
 	for idx, s := range sheets {
-		if qrPNGs == nil {
-			continue
-		}
-		pngBytes := qrPNGs[idx]
+		pngBytes := images[idx]
 		cfgImg, _, derr := image.DecodeConfig(bytes.NewReader(pngBytes))
 		if derr != nil {
 			return fmt.Errorf("decode QR PNG for %s: %w", s, derr)

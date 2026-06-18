@@ -113,7 +113,13 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 		ordered[sheetIdx] = fileBytes[srcIdx]
 	}
 
-	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, ordered)
+	qrSet, err := label.NewQRImageSet(ordered, docCount)
+	if err != nil {
+		// Unreachable: count was already checked above. Treat as internal.
+		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+	}
+
+	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, qrSet)
 	if err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
@@ -155,7 +161,12 @@ func (s *Server) handleCreateLabelAuto(c *fiber.Ctx) error {
 		qrPNGs[i] = png
 	}
 
-	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, qrPNGs)
+	qrSet, err := label.NewQRImageSet(qrPNGs, total)
+	if err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+	}
+
+	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, qrSet)
 	if err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
