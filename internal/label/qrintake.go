@@ -65,6 +65,30 @@ func BuildQRImageSet(uploads []QRUpload, order []int, docCount int, limits QRInt
 	return QRImageSet{images: ordered}, nil
 }
 
+// QRRenderer renders a label's QR payload string to PNG bytes. It is injected
+// so the label domain need not depend on the qr package; the httpx layer wires
+// in qr.NewQRText + qr.CreateQRPNG.
+type QRRenderer func(payload string) ([]byte, error)
+
+// BuildAutoQRImageSet generates the auto-mode QR image set: one QR per sheet,
+// rendered from the label's per-sheet payload (1-based sheet index). It mirrors
+// BuildQRImageSet (the paste path) so both modes funnel into a QRImageSet, and
+// it lifts the per-sheet generation loop out of the HTTP handler into testable
+// domain code (inject a fake renderer). A render error propagates unchanged so
+// the caller can map it (e.g. a too-long payload from qr.NewQRText → 400).
+func BuildAutoQRImageSet(lbl Label, render QRRenderer) (QRImageSet, error) {
+	total := lbl.DocCount()
+	images := make([][]byte, total)
+	for i := 0; i < total; i++ {
+		png, err := render(lbl.QRPayload(i+1, total))
+		if err != nil {
+			return QRImageSet{}, err
+		}
+		images[i] = png
+	}
+	return NewQRImageSet(images, total)
+}
+
 // isPermutation reports whether order is exactly a permutation of [0, n)
 // (sorted(order) == range(n)): correct length, in range, no duplicates.
 func isPermutation(order []int, n int) bool {

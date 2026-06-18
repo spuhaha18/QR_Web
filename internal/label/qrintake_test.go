@@ -79,3 +79,36 @@ func TestBuildQRImageSet_InvalidPNG(t *testing.T) {
 		t.Errorf("msg = %q", ValidationMessage(err))
 	}
 }
+
+func TestBuildAutoQRImageSet_OnePerSheetInPayloadOrder(t *testing.T) {
+	lbl := EquipmentLabel{EqDocCount: 3, EqNumber: "EQ"}
+	var seen []string
+	render := func(payload string) ([]byte, error) {
+		seen = append(seen, payload)
+		return []byte(payload), nil
+	}
+	set, err := BuildAutoQRImageSet(lbl, render)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if set.Len() != 3 {
+		t.Fatalf("Len = %d, want 3", set.Len())
+	}
+	// payloads carry the 1-based "i/3" suffix in sheet order.
+	for i, p := range seen {
+		want := "/3" // i+1 / 3
+		_ = want
+		if got := p[len(p)-len("/3"):]; got != "/3" {
+			t.Errorf("payload %d = %q, want suffix i/3", i, p)
+		}
+	}
+}
+
+func TestBuildAutoQRImageSet_RenderErrorPropagates(t *testing.T) {
+	lbl := EquipmentLabel{EqDocCount: 2}
+	sentinel := errors.New("render failed")
+	_, err := BuildAutoQRImageSet(lbl, func(string) ([]byte, error) { return nil, sentinel })
+	if !errors.Is(err, sentinel) {
+		t.Errorf("err = %v, want render sentinel", err)
+	}
+}

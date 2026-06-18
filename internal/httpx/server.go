@@ -5,6 +5,7 @@
 package httpx
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,7 +14,9 @@ import (
 
 	"qrweb/internal/config"
 	"qrweb/internal/excel"
+	"qrweb/internal/label"
 	"qrweb/internal/logging"
+	"qrweb/internal/qr"
 	"qrweb/web"
 )
 
@@ -105,4 +108,18 @@ func (s *Server) requestLogger() fiber.Handler {
 // jsonify({'error': ...}), status.
 func errJSON(c *fiber.Ctx, status int, msg string) error {
 	return c.Status(status).JSON(fiber.Map{"error": msg})
+}
+
+// fail is the single domain-error → HTTP mapping. User-facing validation errors
+// (label.ErrValidation, qr.ErrInvalidText) become 400 with the error's exact
+// Korean message; everything else is an internal 500 with the generic message.
+// Handlers return fail(c, err) instead of repeating the errors.Is/errJSON
+// branch at every call site. New error classes are registered here, once.
+func fail(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, label.ErrValidation), errors.Is(err, qr.ErrInvalidText):
+		return errJSON(c, fiber.StatusBadRequest, label.ValidationMessage(err))
+	default:
+		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+	}
 }

@@ -21,11 +21,13 @@ func EncodeCP949(s string) ([]byte, error) {
 	return korean.EUCKR.NewEncoder().Bytes([]byte(s))
 }
 
-// CreateQRPNG renders text as a PNG-encoded QR code using error correction
-// level Low (== Python qrcode ERROR_CORRECT_L). The payload is CP949-encoded
-// first, matching qr_generator.create_qr_image.
-func CreateQRPNG(text string) ([]byte, error) {
-	payload, err := EncodeCP949(text)
+// CreateQRPNG renders a validated QRText as a PNG-encoded QR code using error
+// correction level Low (== Python qrcode ERROR_CORRECT_L). The payload is
+// CP949-encoded first, matching qr_generator.create_qr_image. Taking a QRText
+// (not a bare string) means the non-empty/length invariant is guaranteed at the
+// type boundary — generation cannot run on unvalidated text.
+func CreateQRPNG(text QRText) ([]byte, error) {
+	payload, err := EncodeCP949(string(text))
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +40,7 @@ func CreateQRPNG(text string) ([]byte, error) {
 
 // CreateQRBase64 returns the standard-base64-encoded PNG of the QR code for
 // text. Mirrors qr_generator.create_qr_base64.
-func CreateQRBase64(text string) (string, error) {
+func CreateQRBase64(text QRText) (string, error) {
 	pngBytes, err := CreateQRPNG(text)
 	if err != nil {
 		return "", err

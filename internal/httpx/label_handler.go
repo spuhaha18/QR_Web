@@ -3,7 +3,6 @@ package httpx
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -37,10 +36,7 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 	// 1. doc_type / binder_size / required fields.
 	lbl, docType, binderSize, err := label.ParseLabelRequest(fields, fields["doc_type"], fields["binder_size"])
 	if err != nil {
-		if errors.Is(err, label.ErrValidation) {
-			return errJSON(c, fiber.StatusBadRequest, label.ValidationMessage(err))
-		}
-		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+		return fail(c, err)
 	}
 
 	// 2. doc_count (already int via ParseLabelRequest).
@@ -76,10 +72,7 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 	limits := label.QRIntakeLimits{MaxFiles: s.cfg.MaxQRFiles, MaxFileSize: s.cfg.MaxQRFileSize}
 	qrSet, err := label.BuildQRImageSet(uploads, qrOrder, docCount, limits, imaging.ValidatePNGBytes)
 	if err != nil {
-		if errors.Is(err, label.ErrValidation) {
-			return errJSON(c, fiber.StatusBadRequest, label.ValidationMessage(err))
-		}
-		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+		return fail(c, err)
 	}
 
 	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, qrSet)
@@ -107,26 +100,21 @@ func (s *Server) handleCreateLabelAuto(c *fiber.Ctx) error {
 
 	lbl, docType, binderSize, err := label.ParseLabelRequest(fields, fields["doc_type"], fields["binder_size"])
 	if err != nil {
-		if errors.Is(err, label.ErrValidation) {
-			return errJSON(c, fiber.StatusBadRequest, label.ValidationMessage(err))
-		}
-		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+		return fail(c, err)
 	}
 
-	// Server-side QR generation: one per sheet, 1-based sheet index.
-	total := lbl.DocCount()
-	qrPNGs := make([][]byte, total)
-	for i := 0; i < total; i++ {
-		png, err := qr.CreateQRPNG(lbl.QRPayload(i+1, total))
+	// Server-side QR generation: one per sheet (1-based index), via the domain
+	// intake with the qr package wired in as the renderer.
+	renderQR := func(payload string) ([]byte, error) {
+		qrText, err := qr.NewQRText(payload)
 		if err != nil {
-			return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+			return nil, err
 		}
-		qrPNGs[i] = png
+		return qr.CreateQRPNG(qrText)
 	}
-
-	qrSet, err := label.NewQRImageSet(qrPNGs, total)
+	qrSet, err := label.BuildAutoQRImageSet(lbl, renderQR)
 	if err != nil {
-		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
+		return fail(c, err)
 	}
 
 	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, qrSet)

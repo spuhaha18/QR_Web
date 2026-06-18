@@ -47,9 +47,34 @@ func TestEncodeCP949_GoldenParity(t *testing.T) {
 	}
 }
 
+func mustText(t *testing.T, s string) QRText {
+	t.Helper()
+	qt, err := NewQRText(s)
+	if err != nil {
+		t.Fatalf("NewQRText(%q): %v", s, err)
+	}
+	return qt
+}
+
+func TestNewQRText(t *testing.T) {
+	if _, err := NewQRText(""); err == nil {
+		t.Error("empty text: expected error")
+	} else if err.Error() != "QR 코드 텍스트가 제공되지 않았습니다." {
+		t.Errorf("empty msg = %q", err.Error())
+	}
+	if _, err := NewQRText(string(make([]rune, 501))); err == nil {
+		t.Error("501 runes: expected error")
+	} else if err.Error() != "QR 코드 텍스트가 너무 깁니다 (최대 500자)." {
+		t.Errorf("too-long msg = %q", err.Error())
+	}
+	if qt, err := NewQRText("MC-001"); err != nil || qt.String() != "MC-001" {
+		t.Errorf("valid text: (%q, %v)", qt, err)
+	}
+}
+
 func TestCreateQRPNG_DecodableAndDeterministic(t *testing.T) {
 	const payload = "EQ001|DOC-001|유지관리 절차서|품질부|2024|1/3"
-	a, err := CreateQRPNG(payload)
+	a, err := CreateQRPNG(mustText(t, payload))
 	if err != nil {
 		t.Fatalf("CreateQRPNG error: %v", err)
 	}
@@ -64,7 +89,7 @@ func TestCreateQRPNG_DecodableAndDeterministic(t *testing.T) {
 		t.Errorf("PNG size = %dx%d, want %dx%d", b.Dx(), b.Dy(), pngSize, pngSize)
 	}
 	// Same input -> same bytes (no randomness in encoding).
-	b, err := CreateQRPNG(payload)
+	b, err := CreateQRPNG(mustText(t, payload))
 	if err != nil {
 		t.Fatalf("CreateQRPNG (2nd) error: %v", err)
 	}
@@ -74,7 +99,7 @@ func TestCreateQRPNG_DecodableAndDeterministic(t *testing.T) {
 }
 
 func TestCreateQRBase64_DecodesToPNG(t *testing.T) {
-	s, err := CreateQRBase64("홍길동")
+	s, err := CreateQRBase64(mustText(t, "홍길동"))
 	if err != nil {
 		t.Fatalf("CreateQRBase64 error: %v", err)
 	}
