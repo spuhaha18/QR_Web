@@ -4,6 +4,18 @@
 
 **용어**: module/interface/depth/seam/shallow/deletion test (LANGUAGE.md), 권/시트/QR 이미지/QR 이미지 입력/바인더 사이즈/doc_type/Layout/QRImageSet/CellFont (CONTEXT.md).
 
+**진행 상태 (2026-06-19): Phase 1–7 전부 완료.**
+| Phase | 커밋 | 상태 |
+|-------|------|------|
+| 1 값 객체 | `966a8b5` | ✅ |
+| 2 도메인 로직 회수 | `1bbddd8` | ✅ |
+| 3 QRText | `a850590` | ✅ |
+| 4 라벨 생성 유스케이스(BuildAutoQRImageSet) | `a850590` | ✅ |
+| 5 에러→HTTP 매핑 중앙화 | `a850590` | ✅ |
+| 6 프론트 도메인 모듈 + vitest | `1ae8c71` | ✅ |
+| 7 계약 패리티 테스트 | `1ae8c71` | ✅ |
+잔여: 후보4(qr.go CP949) ADR 기록 — 미작성.
+
 ---
 
 ## 완료 (Phase 1–2, 커밋됨)
