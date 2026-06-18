@@ -63,16 +63,9 @@ def sheet_facts(ws):
     facts["values"] = values
     facts["fonts"] = fonts
     facts["borders"] = borders
-    # 이미지 앵커 셀 + 개수
-    imgs = []
-    for img in getattr(ws, "_images", []):
-        anchor = getattr(img, "anchor", None)
-        try:
-            cell = f"{chr(65 + anchor._from.col)}{anchor._from.row + 1}"
-        except Exception:
-            cell = str(anchor)
-        imgs.append(cell)
-    facts["images"] = sorted(imgs)
+    # QR 위치는 Go에서 의도적으로 박스 중앙으로 이동(레거시와 다름) — 앵커 비교 제외.
+    # (이미지 존재/개수는 centering_test.go가 별도 검증)
+    # facts["images"] 제거.
     return facts
 
 

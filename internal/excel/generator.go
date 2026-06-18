@@ -310,25 +310,24 @@ func (g *Generator) createAdditionalSheets(f *excelize.File, docType string, doc
 	return nil
 }
 
-// applyQRCodes sets B–M column width and embeds one 75x75px QR per sheet at the
-// binder/type-specific anchor cell (mirrors _apply_qr_codes paste mode).
+// applyQRCodes sets B–M column width and embeds one 75x75px QR per sheet,
+// centered in the lower bordered box (B8:M17 equipment, B7:M17 project).
 func (g *Generator) applyQRCodes(f *excelize.File, docType string, binder int, qrPNGs [][]byte) error {
 	cfg := label.GetQRConfig(docType, binder)
-
 	sheets := f.GetSheetList()
 
 	if qrPNGs != nil && len(qrPNGs) < len(sheets) {
 		return fmt.Errorf("qrPNGs has %d entries but %d sheets expected", len(qrPNGs), len(sheets))
 	}
 
-	// B..M width on every sheet. excelize coalesces equal-width adjacent columns
-	// into one <col> span; this is visually equivalent to openpyxl's per-column
-	// elements and the comparator normalizes both, so no expansion is needed.
 	for _, s := range sheets {
 		if err := f.SetColWidth(s, "B", "M", cfg.ColumnWidth); err != nil {
 			return err
 		}
 	}
+
+	// Center the QR in the lower bordered box (B8:M17 equipment, B7:M17 project).
+	anchorCell, offX, offY := qrCenterAnchor(docType, cfg.ColumnWidth)
 
 	for idx, s := range sheets {
 		if qrPNGs == nil {
@@ -341,14 +340,14 @@ func (g *Generator) applyQRCodes(f *excelize.File, docType string, binder int, q
 		}
 		scaleX := 75.0 / float64(cfgImg.Width)
 		scaleY := 75.0 / float64(cfgImg.Height)
-		if err := f.AddPictureFromBytes(s, cfg.CellPos, &excelize.Picture{
+		if err := f.AddPictureFromBytes(s, anchorCell, &excelize.Picture{
 			Extension: ".png",
 			File:      pngBytes,
 			Format: &excelize.GraphicOptions{
 				ScaleX:          scaleX,
 				ScaleY:          scaleY,
-				OffsetX:         0,
-				OffsetY:         0,
+				OffsetX:         offX,
+				OffsetY:         offY,
 				Positioning:     "oneCell",
 				AutoFit:         false,
 				LockAspectRatio: false,
