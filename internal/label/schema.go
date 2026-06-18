@@ -66,6 +66,11 @@ var (
 type Label interface {
 	// CellValues maps cell address -> value for Sheet 1 (B5 == "1/{count}").
 	CellValues() map[string]any
+	// CellFonts maps cell address -> font intent for the cells this label writes.
+	// The Label owns which cell carries which font; the excel renderer maps each
+	// intent to a concrete typeface/size. (Previously the addresses lived here in
+	// CellValues but the fonts were hardcoded cell-by-cell in the generator.)
+	CellFonts() map[string]CellFont
 	// QRPayload returns the pipe-delimited payload for sheet i of total (auto mode).
 	QRPayload(i, total int) string
 	// DocNumber is the filename base (equipment=eq_doc_number, project=pjt_test_number).
@@ -75,6 +80,22 @@ type Label interface {
 	// TitleCell is the title cell address (both "B4"), the FONT_TITLE target.
 	TitleCell() string
 }
+
+// CellFont is the domain-level font intent for a label cell. The excel renderer
+// maps each to a concrete typeface and size; the Label decides which cell
+// carries which intent.
+type CellFont int
+
+const (
+	// CellFontBody is regular body text (Times New Roman 12 bold).
+	CellFontBody CellFont = iota
+	// CellFontTitle is the document title (Times New Roman 16 bold), cell B4.
+	CellFontTitle
+	// CellFontHeading is the project Q21 heading (Times New Roman 20 bold).
+	CellFontHeading
+	// CellFontSub is the project Q22/R23 subheading (Times New Roman 13 bold).
+	CellFontSub
+)
 
 // EquipmentLabel owns the equipment label's field values, cell mapping, and QR
 // payload. Ported from document_schema.EquipmentLabel.
@@ -110,6 +131,17 @@ func (l EquipmentLabel) QRPayload(i, total int) string {
 		strconv.Itoa(l.EqDocYear),
 		fmt.Sprintf("%d/%d", i, total),
 	}, "|")
+}
+
+func (l EquipmentLabel) CellFonts() map[string]CellFont {
+	return map[string]CellFont{
+		"B2": CellFontBody,
+		"B3": CellFontBody,
+		"B4": CellFontTitle,
+		"B5": CellFontBody,
+		"B6": CellFontBody,
+		"B7": CellFontBody,
+	}
 }
 
 func (l EquipmentLabel) DocNumber() string { return l.EqDocNumber }
@@ -152,6 +184,20 @@ func (l ProjectLabel) QRPayload(i, total int) string {
 		l.PjtDocWriter,
 		fmt.Sprintf("%d/%d", i, total),
 	}, "|")
+}
+
+func (l ProjectLabel) CellFonts() map[string]CellFont {
+	return map[string]CellFont{
+		"B2":  CellFontBody,
+		"B3":  CellFontBody,
+		"B4":  CellFontTitle,
+		"B5":  CellFontBody,
+		"B6":  CellFontBody,
+		"Q21": CellFontHeading,
+		"Q22": CellFontSub,
+		"R23": CellFontSub,
+		"S23": CellFontBody,
+	}
 }
 
 func (l ProjectLabel) DocNumber() string { return l.PjtTestNumber }

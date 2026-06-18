@@ -101,10 +101,10 @@ func setupBasicLayout(f *excelize.File) error {
 		}
 	}
 
-	if err := f.SetColWidth(sheet1, "A", "A", 0.375); err != nil {
+	if err := f.SetColWidth(sheet1, "A", "A", narrowColWidth); err != nil {
 		return err
 	}
-	if err := f.SetColWidth(sheet1, "N", "N", 0.375); err != nil {
+	if err := f.SetColWidth(sheet1, "N", "N", narrowColWidth); err != nil {
 		return err
 	}
 
@@ -144,17 +144,17 @@ func setupEquipmentDocument(f *excelize.File, sb *styleBuilder, dt label.DocType
 		return err
 	}
 
-	top := dt.Layout().QRBoxTopRow
+	layout := dt.Layout()
+	top, bottom := layout.QRBoxTopRow, layout.QRBoxBottomRow
 	// additional_borders, in Python source order:
-	//   B2:M7 thin (full replace) ; B{top}:M{top} top ; B{top}:B17 left ;
-	//   M{top}:M17 right ; B17:M17 bottom
+	//   B2:M7 thin (full replace) ; box top ; box left ; box right ; box bottom
 	sb.setBorderRange("B2:M7", map[string]string{"left": "thin", "right": "thin", "top": "thin", "bottom": "thin"})
 	sb.setBorderRange(fmt.Sprintf("B%d:M%d", top, top), map[string]string{"top": "thin"})
-	sb.setBorderRange(fmt.Sprintf("B%d:B17", top), map[string]string{"left": "thin"})
-	sb.setBorderRange(fmt.Sprintf("M%d:M17", top), map[string]string{"right": "thin"})
-	sb.setBorderRange("B17:M17", map[string]string{"bottom": "thin"})
+	sb.setBorderRange(fmt.Sprintf("B%d:B%d", top, bottom), map[string]string{"left": "thin"})
+	sb.setBorderRange(fmt.Sprintf("M%d:M%d", top, bottom), map[string]string{"right": "thin"})
+	sb.setBorderRange(fmt.Sprintf("B%d:M%d", bottom, bottom), map[string]string{"bottom": "thin"})
 
-	return applyCellValues(f, sb, lbl)
+	return applyCellValuesAndFonts(f, sb, lbl)
 }
 
 // setupProjectDocument mirrors _setup_project_document.
@@ -175,7 +175,7 @@ func setupProjectDocument(f *excelize.File, sb *styleBuilder, dt label.DocType, 
 	if err := f.SetColWidth(sheet1, "S", "S", 8.13); err != nil {
 		return err
 	}
-	if err := f.SetColWidth(sheet1, "T", "T", 0.375); err != nil {
+	if err := f.SetColWidth(sheet1, "T", "T", narrowColWidth); err != nil {
 		return err
 	}
 
@@ -188,23 +188,9 @@ func setupProjectDocument(f *excelize.File, sb *styleBuilder, dt label.DocType, 
 
 	applyProjectBorders(f, sb, dt)
 
-	// values
-	for addr, v := range lbl.CellValues() {
-		if err := setCellValue(f, addr, v); err != nil {
-			return err
-		}
+	if err := applyCellValuesAndFonts(f, sb, lbl); err != nil {
+		return err
 	}
-
-	// fonts (display concern, applied here in Python)
-	sb.setFontCell("B2", fontTimes)
-	sb.setFontCell("B3", fontTimes)
-	sb.setFontCell("B4", fontTitle)
-	sb.setFontCell("B5", fontTimes)
-	sb.setFontCell("B6", fontTimes)
-	sb.setFontCell("Q21", fontQ21)
-	sb.setFontCell("Q22", fontQ22R23)
-	sb.setFontCell("R23", fontQ22R23)
-	sb.setFontCell("S23", fontTimes)
 
 	// print_area A1:T24
 	return setPrintArea(f, sheet1)
@@ -214,18 +200,19 @@ func setupProjectDocument(f *excelize.File, sb *styleBuilder, dt label.DocType, 
 // QR box top row comes from the doc type's Layout (7 for project), the single
 // source also read by the geometry math.
 func applyProjectBorders(f *excelize.File, sb *styleBuilder, dt label.DocType) {
-	top := dt.Layout().QRBoxTopRow
+	layout := dt.Layout()
+	top, bottom := layout.QRBoxTopRow, layout.QRBoxBottomRow
 	sb.setBorderRange(fmt.Sprintf("B%d:M%d", top, top), map[string]string{"top": "thin"})
-	sb.setBorderRange(fmt.Sprintf("B%d:B17", top), map[string]string{"left": "thin"})
-	sb.setBorderRange(fmt.Sprintf("M%d:M17", top), map[string]string{"right": "thin"})
-	sb.setBorderRange("B17:M17", map[string]string{"bottom": "thin"})
+	sb.setBorderRange(fmt.Sprintf("B%d:B%d", top, bottom), map[string]string{"left": "thin"})
+	sb.setBorderRange(fmt.Sprintf("M%d:M%d", top, bottom), map[string]string{"right": "thin"})
+	sb.setBorderRange(fmt.Sprintf("B%d:M%d", bottom, bottom), map[string]string{"bottom": "thin"})
 
-	sb.setBorderCell("B17", map[string]string{"left": "thin", "bottom": "thin"})
-	sb.setBorderCell("M17", map[string]string{"right": "thin", "bottom": "thin"})
+	sb.setBorderCell(fmt.Sprintf("B%d", bottom), map[string]string{"left": "thin", "bottom": "thin"})
+	sb.setBorderCell(fmt.Sprintf("M%d", bottom), map[string]string{"right": "thin", "bottom": "thin"})
 
-	// N,O,P widths 0.375 (Python: columns 14..16). N already set; set O,P too.
+	// N,O,P spacer widths (Python: columns 14..16). N already set; set O,P too.
 	for _, col := range []string{"N", "O", "P"} {
-		_ = f.SetColWidth(sheet1, col, col, 0.375)
+		_ = f.SetColWidth(sheet1, col, col, narrowColWidth)
 	}
 
 	// Q20:S20, Q24:S24 top+bottom thin
@@ -246,18 +233,19 @@ func applyProjectBorders(f *excelize.File, sb *styleBuilder, dt label.DocType) {
 	sb.setBorderRange("Q22:S22", map[string]string{"left": "thin", "right": "thin", "top": "thin", "bottom": "thin"})
 }
 
-// applyCellValues writes equipment cell values and assigns FONT_TITLE/FONT_TIMES.
-func applyCellValues(f *excelize.File, sb *styleBuilder, lbl label.Label) error {
-	title := lbl.TitleCell()
+// applyCellValuesAndFonts writes the label's cell values and applies its
+// declared per-cell fonts. Both the addresses/values and the font intents are
+// owned by the Label (CellValues + CellFonts); the renderer only translates
+// each intent to an excelize font. Equipment and project share this one path —
+// the doc-type-specific font block is gone.
+func applyCellValuesAndFonts(f *excelize.File, sb *styleBuilder, lbl label.Label) error {
 	for addr, v := range lbl.CellValues() {
 		if err := setCellValue(f, addr, v); err != nil {
 			return err
 		}
-		if addr == title {
-			sb.setFontCell(addr, fontTitle)
-		} else {
-			sb.setFontCell(addr, fontTimes)
-		}
+	}
+	for addr, cf := range lbl.CellFonts() {
+		sb.setFontCell(addr, fontKindFor(cf))
 	}
 	return nil
 }
@@ -335,8 +323,8 @@ func (g *Generator) applyQRCodes(f *excelize.File, dt label.DocType, binder labe
 		if derr != nil {
 			return fmt.Errorf("decode QR PNG for %s: %w", s, derr)
 		}
-		scaleX := 75.0 / float64(cfgImg.Width)
-		scaleY := 75.0 / float64(cfgImg.Height)
+		scaleX := qrSizePx / float64(cfgImg.Width)
+		scaleY := qrSizePx / float64(cfgImg.Height)
 		if err := f.AddPictureFromBytes(s, anchorCell, &excelize.Picture{
 			Extension: ".png",
 			File:      pngBytes,

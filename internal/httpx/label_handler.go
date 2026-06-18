@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -47,10 +46,9 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 	// 2. doc_count (already int via ParseLabelRequest).
 	docCount := lbl.DocCount()
 
-	// QR image files.
-	qrFiles := form.File["qr_images"]
-
-	// qr_order parse.
+	// Transport: parse qr_order JSON and read the uploaded bytes. Domain rules
+	// (count, permutation, size, PNG validity, reorder) live in the label
+	// package's QR image intake; the handler only moves bytes across the wire.
 	var qrOrder []int
 	rawOrder := fields["qr_order"]
 	if rawOrder == "" {
@@ -60,33 +58,9 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 		return errJSON(c, fiber.StatusBadRequest, "qr_order 형식이 올바르지 않습니다.")
 	}
 
-	// 3. len(qr_files) == doc_count.
-	if len(qrFiles) != docCount {
-		return errJSON(c, fiber.StatusBadRequest,
-			fmt.Sprintf("QR 이미지 수가 권수와 다릅니다 (받음: %d, 권수: %d)", len(qrFiles), docCount))
-	}
-
-	// 4. len(qr_files) <= MAX_QR_FILES.
-	if len(qrFiles) > s.cfg.MaxQRFiles {
-		return errJSON(c, fiber.StatusBadRequest,
-			fmt.Sprintf("QR 이미지는 최대 %d개까지 허용됩니다.", s.cfg.MaxQRFiles))
-	}
-
-	// 5. qr_order length / range / duplicate.
-	if len(qrOrder) != docCount {
-		return errJSON(c, fiber.StatusBadRequest, "qr_order 길이가 권수와 다릅니다.")
-	}
-	if !isPermutation(qrOrder, docCount) {
-		return errJSON(c, fiber.StatusBadRequest, "qr_order에 중복이나 범위 초과 인덱스가 있습니다.")
-	}
-
-	// 6. per-file size + valid PNG.
-	fileBytes := make([][]byte, len(qrFiles))
+	qrFiles := form.File["qr_images"]
+	uploads := make([]label.QRUpload, len(qrFiles))
 	for i, fh := range qrFiles {
-		if fh.Size > s.cfg.MaxQRFileSize {
-			return errJSON(c, fiber.StatusBadRequest,
-				fmt.Sprintf("QR 이미지 크기가 2MB를 초과합니다: %s", fh.Filename))
-		}
 		f, err := fh.Open()
 		if err != nil {
 			return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
@@ -96,26 +70,15 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 		if err != nil {
 			return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 		}
-		if int64(len(raw)) > s.cfg.MaxQRFileSize {
-			return errJSON(c, fiber.StatusBadRequest,
-				fmt.Sprintf("QR 이미지 크기가 2MB를 초과합니다: %s", fh.Filename))
-		}
-		if !imaging.ValidatePNGBytes(raw) {
-			return errJSON(c, fiber.StatusBadRequest,
-				fmt.Sprintf("유효하지 않은 PNG 이미지입니다: %s", fh.Filename))
-		}
-		fileBytes[i] = raw
+		uploads[i] = label.QRUpload{Name: fh.Filename, Bytes: raw}
 	}
 
-	// 7. reorder by qr_order -> generate -> stream.
-	ordered := make([][]byte, docCount)
-	for sheetIdx, srcIdx := range qrOrder {
-		ordered[sheetIdx] = fileBytes[srcIdx]
-	}
-
-	qrSet, err := label.NewQRImageSet(ordered, docCount)
+	limits := label.QRIntakeLimits{MaxFiles: s.cfg.MaxQRFiles, MaxFileSize: s.cfg.MaxQRFileSize}
+	qrSet, err := label.BuildQRImageSet(uploads, qrOrder, docCount, limits, imaging.ValidatePNGBytes)
 	if err != nil {
-		// Unreachable: count was already checked above. Treat as internal.
+		if errors.Is(err, label.ErrValidation) {
+			return errJSON(c, fiber.StatusBadRequest, label.ValidationMessage(err))
+		}
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
 
@@ -235,22 +198,6 @@ func rfc5987Encode(s string) string {
 		}
 	}
 	return b.String()
-}
-
-// isPermutation reports whether order is exactly a permutation of [0, n)
-// (sorted(order) == range(n)): correct length, in range, no duplicates.
-func isPermutation(order []int, n int) bool {
-	if len(order) != n {
-		return false
-	}
-	cp := append([]int(nil), order...)
-	sort.Ints(cp)
-	for i := 0; i < n; i++ {
-		if cp[i] != i {
-			return false
-		}
-	}
-	return true
 }
 
 // jsonFields flattens a decoded JSON object to map[string]string the way

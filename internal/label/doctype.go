@@ -60,25 +60,29 @@ func (d DocType) RequiredFields() []string {
 func (d DocType) Layout() Layout {
 	if d == DocTypeProject {
 		return Layout{
-			QRBoxTopRow:  7,
-			HasPrintArea: true,
-			CountCells:   []string{"B5", "S23"},
+			QRBoxTopRow:    7,
+			QRBoxBottomRow: 17,
+			HasPrintArea:   true,
+			CountCells:     []string{"B5", "S23"},
 		}
 	}
 	return Layout{
-		QRBoxTopRow:  8,
-		HasPrintArea: false,
-		CountCells:   []string{"B5"},
+		QRBoxTopRow:    8,
+		QRBoxBottomRow: 17,
+		HasPrintArea:   false,
+		CountCells:     []string{"B5"},
 	}
 }
 
-// Layout holds the doc-type-specific structural facts. The QR box bottom row
-// (17) and its columns (B–M) are common to both doc types and live as constants
-// in the excel package.
+// Layout holds the doc-type-specific structural facts. The QR box columns (B–M)
+// are common to both doc types and live as a constant in the excel package.
 type Layout struct {
-	// QRBoxTopRow is the top row of the lower QR box (bottom is always row 17):
-	// 8 for equipment, 7 for project.
+	// QRBoxTopRow is the top row of the lower QR box: 8 for equipment, 7 for
+	// project.
 	QRBoxTopRow int
+	// QRBoxBottomRow is the bottom row of the lower QR box (17 for both); paired
+	// with QRBoxTopRow it fully describes the box's vertical extent.
+	QRBoxBottomRow int
 	// HasPrintArea reports whether an A1:T24 print area is defined per sheet
 	// (project only).
 	HasPrintArea bool

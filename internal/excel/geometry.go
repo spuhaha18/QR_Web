@@ -14,6 +14,11 @@ const qrSizePx = 75.0
 // width->pixel conversion.
 const mdw = 7.0
 
+// narrowColWidth is the width (char units) of the spacer columns A/N (and the
+// project panel's N–T spacers): the single source for the 0.375 that the
+// generator's SetColWidth calls and the QR box-left geometry both reference.
+const narrowColWidth = 0.375
+
 // colWidthToPx converts an Excel column width (in characters) to pixels using
 // the OOXML formula with MDW=7.
 func colWidthToPx(w float64) float64 {
@@ -51,7 +56,7 @@ var colLetters = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
 // >=0 (a QR wider/taller than its box overflows symmetrically until it hits the
 // sheet edge).
 func qrCenterAnchor(dt label.DocType, colW float64) (cell string, offX, offY int) {
-	const colA = 0.375
+	const colA = narrowColWidth
 	// Horizontal geometry.
 	boxLeftPx := colWidthToPx(colA)
 	boxWidthPx := 12.0 * colWidthToPx(colW)
@@ -59,14 +64,16 @@ func qrCenterAnchor(dt label.DocType, colW float64) (cell string, offX, offY int
 	if targetX < 0 {
 		targetX = 0
 	}
-	// Vertical geometry.
-	topRow := dt.Layout().QRBoxTopRow
+	// Vertical geometry — box extent from the doc type's Layout.
+	layout := dt.Layout()
+	topRow := layout.QRBoxTopRow
+	bottomRow := layout.QRBoxBottomRow
 	boxTopPx := 0.0
 	for r := 1; r < topRow; r++ {
 		boxTopPx += rowHeightToPx(rowHeights[r])
 	}
 	boxHeightPx := 0.0
-	for r := topRow; r <= 17; r++ {
+	for r := topRow; r <= bottomRow; r++ {
 		boxHeightPx += rowHeightToPx(rowHeights[r])
 	}
 	targetY := boxTopPx + (boxHeightPx-qrSizePx)/2.0
@@ -92,13 +99,13 @@ func qrCenterAnchor(dt label.DocType, colW float64) (cell string, offX, offY int
 	}
 	offX = int(math.Round(targetX - accX))
 
-	// Resolve targetY -> (row, in-cell offset) by walking rows 1..17.
+	// Resolve targetY -> (row, in-cell offset) by walking rows 1..bottomRow.
 	rowNum, accY := 1, 0.0
-	for r := 1; r <= 17; r++ {
+	for r := 1; r <= bottomRow; r++ {
 		hpx := rowHeightToPx(rowHeights[r])
 		// Stop when the accumulated height reaches or passes targetY (exact match
 		// stays in the current row — the offset becomes 0 or near-0).
-		if accY+hpx > targetY || r == 17 {
+		if accY+hpx > targetY || r == bottomRow {
 			rowNum = r
 			break
 		}

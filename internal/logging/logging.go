@@ -41,6 +41,31 @@ func parseLevel(s string) Level {
 	}
 }
 
+// LevelOf extracts the severity from a formatted log line, reporting false if
+// the line does not match the write() format
+// "DATE TIME LEVEL logger thread : message" (LEVEL is the 3rd space-field).
+// The log viewer uses this instead of a substring match so that a message
+// merely containing "INFO" is not mistaken for an INFO-level line, and so the
+// coupling to the line format lives here, with the format's owner.
+func LevelOf(line string) (Level, bool) {
+	fields := strings.Fields(line)
+	if len(fields) < 3 {
+		return 0, false
+	}
+	switch fields[2] {
+	case "DEBUG":
+		return DEBUG, true
+	case "INFO":
+		return INFO, true
+	case "WARNING":
+		return WARNING, true
+	case "ERROR":
+		return ERROR, true
+	default:
+		return 0, false
+	}
+}
+
 func (l Level) String() string {
 	switch l {
 	case DEBUG:

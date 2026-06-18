@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
+	"qrweb/internal/logging"
 )
 
 // handleGetLogs ports GET /api/logs — returns the most recent N log lines,
@@ -57,8 +59,13 @@ func (s *Server) handleGetLogs(c *fiber.Ctx) error {
 		if line == "" {
 			continue
 		}
-		if level != "ALL" && !strings.Contains(line, level) {
-			continue
+		if level != "ALL" {
+			// Parse the actual level field via its format owner instead of a
+			// substring match (a message containing "INFO" is not an INFO line).
+			lvl, ok := logging.LevelOf(line)
+			if !ok || lvl.String() != level {
+				continue
+			}
 		}
 		if search != "" && !strings.Contains(strings.ToLower(line), strings.ToLower(search)) {
 			continue

@@ -16,6 +16,8 @@ import (
 	"sort"
 
 	"github.com/xuri/excelize/v2"
+
+	"qrweb/internal/label"
 )
 
 // borderStyle maps openpyxl border_style names to excelize Style integers.
@@ -24,6 +26,22 @@ import (
 var borderStyleID = map[string]int{
 	"thin":   1,
 	"medium": 2,
+}
+
+// fontKindFor maps a label's domain font intent to the concrete excelize font
+// kind below. The label package owns which cell gets which intent; this is the
+// renderer's single translation point.
+func fontKindFor(cf label.CellFont) fontKind {
+	switch cf {
+	case label.CellFontTitle:
+		return fontTitle
+	case label.CellFontHeading:
+		return fontQ21
+	case label.CellFontSub:
+		return fontQ22R23
+	default:
+		return fontTimes
+	}
 }
 
 // fontKind identifies which font (if any) a cell carries.
