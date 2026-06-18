@@ -22,8 +22,11 @@ export CGO_ENABLED := 0
 all: build
 
 ## frontend: install deps and build the SPA into web/dist (Go embed target).
+## `touch web/dist/.gitkeep` restores the tracked placeholder after Vite's
+## emptyOutDir wipes it, so `go build ./web` always finds ≥1 embedded file.
 frontend:
 	cd $(FRONTEND) && npm ci && npm run build
+	touch $(DIST)/.gitkeep
 
 ## build: build the frontend then compile the static binary with embedded SPA.
 build: frontend

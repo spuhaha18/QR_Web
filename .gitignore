@@ -63,7 +63,8 @@ test*.pdf
 
 # Frontend (Vite + Svelte)
 web/frontend/node_modules/
-web/dist/
+web/dist/*
+!web/dist/.gitkeep
 
 # Go build output
 /bin/

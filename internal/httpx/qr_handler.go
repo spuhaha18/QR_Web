@@ -9,10 +9,11 @@ import (
 	"qrweb/internal/qr"
 )
 
-// handleQRImage ports GET /api/qr_image/:text — returns the QR PNG for the path
-// text (<=500 chars).
+// handleQRImage ports GET /api/qr_image/* — returns the QR PNG for the path
+// text (<=500 chars). Uses Fiber wildcard so payloads with slashes (e.g. "1/3")
+// are captured correctly, matching Flask's <path:qr_text> behaviour.
 func (s *Server) handleQRImage(c *fiber.Ctx) error {
-	text := c.Params("text")
+	text := c.Params("*")
 	// Decode percent-escapes to match Flask's <path:qr_text> (already unescaped).
 	if d, err := url.PathUnescape(text); err == nil {
 		text = d

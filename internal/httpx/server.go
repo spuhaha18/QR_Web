@@ -71,7 +71,7 @@ func (s *Server) registerRoutes() {
 	s.app.Post("/api/create_label", s.handleCreateLabelAuto) // auto mode, JSON -> .xlsx (base64)
 
 	// QR image.
-	s.app.Get("/api/qr_image/:text", s.handleQRImage)
+	s.app.Get("/api/qr_image/*", s.handleQRImage)
 	s.app.Post("/api/qr_image_base64", s.handleQRImageBase64)
 
 	// Health.
