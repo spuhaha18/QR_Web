@@ -490,13 +490,6 @@ select {
     color: var(--primary-color);
 }
 
-/* Loading state */
-.loading {
-    display: none;
-    text-align: center;
-    margin-top: 24px;
-}
-
 /* Toast Notifications */
 .toast-container {
     position: fixed;
@@ -1165,16 +1158,6 @@ button.header-link {
 }
 
 /* ===== Spinner / loading (SPA) ===== */
-.spinner {
-  width: 32px;
-  height: 32px;
-  margin: 0 auto 12px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
