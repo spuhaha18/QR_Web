@@ -80,11 +80,13 @@ func qrCenterAnchor(docType string, colW float64) (cell string, offX, offY int) 
 	// Resolve targetX -> (column, in-cell offset) by walking A,B,...,M.
 	colIdx, accX := 0, 0.0
 	for i, letter := range colLetters {
-		w := colA
-		if letter != "A" && letter != "N" {
-			w = colW
+		w := colW
+		if letter == "A" {
+			w = colA
 		}
 		wpx := colWidthToPx(w)
+		// Stop when the accumulated width reaches or passes targetX (exact match
+		// stays in the current cell — the offset becomes 0 or near-0).
 		if accX+wpx > targetX || i == len(colLetters)-1 {
 			colIdx = i
 			break
@@ -97,6 +99,8 @@ func qrCenterAnchor(docType string, colW float64) (cell string, offX, offY int) 
 	rowNum, accY := 1, 0.0
 	for r := 1; r <= 17; r++ {
 		hpx := rowHeightToPx(rowHeights[r])
+		// Stop when the accumulated height reaches or passes targetY (exact match
+		// stays in the current row — the offset becomes 0 or near-0).
 		if accY+hpx > targetY || r == 17 {
 			rowNum = r
 			break
