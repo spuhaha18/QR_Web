@@ -25,11 +25,11 @@ QR_Web Svelte SPA의 라벨 제작 폼은 기능은 완성됐으나 UX 마찰이
 ### 목표
 - 필드별 **실시간 검증** + 빈 값이면 입력 아래 인라인 메시지 + invalid 테두리.
 - 표시 타이밍: 해당 필드 **blur 후** 또는 **제출 시도 후**(touched/제출플래그 기준). 초기 빈 폼에 빨간색 도배 방지.
-- 숫자 필드(`eq_doc_count`/`pjt_doc_count`/`eq_doc_year`): 정수 ≥1. (백엔드 `safe_int_conversion`의 `max(1,...)`과 정합. 연도는 빈 값이면 현재년 기본이라 빈 값 허용하되 숫자면 ≥1.)
+- 숫자 필드(`eq_doc_count`/`pjt_doc_count`/`eq_doc_year`): 정수 ≥1. (백엔드 `safe_int_conversion`의 `max(1,...)`과 정합. 연도는 필수(빈 값 허용 시 서버가 현재년으로 조용히 대체하므로 클라에서 막음).)
 - 기존 단일 토스트 제거(제출 시 검증 실패는 인라인으로 드러나고 제출 버튼이 비활).
 
 ### 검증 규칙 (필드별)
-- 기기: `eq_number`,`eq_doc_number`,`eq_doc_title`,`eq_doc_department` 필수(trim 비어있지 않음). `eq_doc_count` 정수 ≥1. `eq_doc_year` 정수 ≥1(빈 값은 기본 처리되므로 허용).
+- 기기: `eq_number`,`eq_doc_number`,`eq_doc_title`,`eq_doc_department` 필수(trim 비어있지 않음). `eq_doc_count` 정수 ≥1. `eq_doc_year` 정수 ≥1 (필수 — 빈 값 허용 시 서버가 현재년으로 조용히 대체하므로 클라에서 막음).
 - 과제: `pjt_number`,`pjt_test_number`,`pjt_doc_title`,`pjt_doc_writer` 필수. `pjt_doc_count` 정수 ≥1.
 - 메시지: 각 필드 placeholder/라벨에 맞춘 한국어("문서 번호를 입력하세요." 등). 필드별 고정 문구.
 

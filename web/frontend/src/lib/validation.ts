@@ -27,10 +27,9 @@ export function validateEquipment(e: EquipmentForm): FieldErrors {
     if (!String((e as unknown as Record<string, unknown>)[k] ?? '').trim()) errors[k] = msg;
   }
   if (!isPositiveInt(e.eq_doc_count)) errors.eq_doc_count = '권수는 1 이상이어야 합니다.';
-  // 연도: 빈 값은 서버 기본 처리(현재년)이라 허용. 값이 있으면 정수 ≥1.
-  if (String(e.eq_doc_year ?? '').trim() && !isPositiveInt(e.eq_doc_year)) {
-    errors.eq_doc_year = '연도가 올바르지 않습니다.';
-  }
+  // 연도는 필수. 빈 값을 허용하면 서버가 조용히 현재년으로 대체해 사용자가
+  // 의도하지 않은 연도의 라벨을 받게 되므로, 빈 값/비정수를 오류로 잡는다.
+  if (!isPositiveInt(e.eq_doc_year)) errors.eq_doc_year = '연도를 입력하세요.';
   return errors;
 }
 

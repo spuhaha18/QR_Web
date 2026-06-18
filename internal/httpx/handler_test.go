@@ -10,6 +10,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -150,6 +152,27 @@ func TestCreateLabel_CorrectNFiles_ReturnsXLSX(t *testing.T) {
 	}
 	if !bytes.HasPrefix(rec.Body.Bytes(), []byte("PK")) {
 		t.Errorf("body is not a ZIP/xlsx (first bytes: %x)", rec.Body.Bytes()[:4])
+	}
+}
+
+func TestGetLogs_NegativeLines_NoPanic(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "app.log")
+	if err := os.WriteFile(logPath, []byte("line1\nline2\nline3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Load()
+	cfg.LogFile = logPath
+	s := New(cfg, logging.Default())
+
+	// lines=-1 must not produce a negative slice index panic (recover -> 500).
+	req := httptest.NewRequest("GET", "/api/logs?lines=-1", nil)
+	resp, err := s.App().Test(req, -1)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d, want 200 (negative lines must not panic)", resp.StatusCode)
 	}
 }
 

@@ -21,6 +21,11 @@ func (s *Server) handleGetLogs(c *fiber.Ctx) error {
 			lines = n
 		}
 	}
+	if lines < 1 {
+		// Guard against negative/zero `lines`: all[len(all)-lines:] would index
+		// out of range (panic). Fall back to the default tail size.
+		lines = 100
+	}
 	if lines > 1000 {
 		lines = 1000
 	}
