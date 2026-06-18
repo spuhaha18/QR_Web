@@ -648,14 +648,13 @@ select {
   margin: 8px 0 4px;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #888;
 }
 
 .qr-counter-hint { font-size: 0.85rem; font-weight: 600; }
 
 .qr-counter.under { color: var(--text-muted); }
-.qr-counter.ok    { color: #16a34a; }
-.qr-counter.over  { color: #dc2626; }
+.qr-counter.ok    { color: var(--success-text); }
+.qr-counter.over  { color: var(--error-text); }
 
 .qr-thumbnails {
   list-style: none;
