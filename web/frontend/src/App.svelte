@@ -4,6 +4,7 @@
   import { showSuccess, showError } from './lib/toast';
   import { submitLabel } from './lib/api';
   import { validateEquipment, validateProject } from './lib/validation';
+  import { isProject, isBinderAllowed, isReady as computeReady } from './lib/domain';
   import { onMount } from 'svelte';
 
   import Toast from './components/Toast.svelte';
@@ -66,28 +67,28 @@
     localStorage.setItem('theme', theme);
   }
 
-  // 과제 문서는 3cm 미만(1)을 숨기므로, 선택돼 있던 1cm는 미선택으로 되돌려
-  // 사용자가 유효한 크기를 다시 고르도록 한다.
-  $: if (docType === '2' && binderSize === 1) {
+  // 현재 문서 종류에서 허용되지 않는 바인더(예: 과제+1cm)가 선택돼 있으면
+  // 미선택으로 되돌려 사용자가 유효한 크기를 다시 고르도록 한다.
+  $: if (binderSize !== null && !isBinderAllowed(binderSize, docType)) {
     binderSize = null;
   }
 
   // 권수 (현재 문서 종류 기준)
   $: docCount =
-    docType === '1' ? Number(equipment.eq_doc_count) || 1 : Number(project.pjt_doc_count) || 1;
+    isProject(docType) ? Number(project.pjt_doc_count) || 1 : Number(equipment.eq_doc_count) || 1;
 
   let formKey = 0;
   let submitAttempted = false;
-  $: errors = docType === '1' ? validateEquipment(equipment) : validateProject(project);
+  $: errors = isProject(docType) ? validateProject(project) : validateEquipment(equipment);
   $: fieldErrorCount = Object.keys(errors).length;
   $: qrCount = $qrItems.length;
   $: binderOk = binderSize !== null;
-  $: isReady = fieldErrorCount === 0 && binderOk && qrCount === docCount;
+  $: ready = computeReady({ fieldErrorCount, binderSelected: binderOk, qrCount, docCount });
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
     if (loading) return;
-    if (!isReady) { submitAttempted = true; return; }
+    if (!ready) { submitAttempted = true; return; }
     const insertion = $qrItems;
     const form: LabelForm = { docType, binderSize: binderSize as BinderSize, equipment, project };
     loading = true;
@@ -165,7 +166,7 @@
       </div>
     </div>
 
-    <ReadinessPanel {fieldErrorCount} {binderOk} {qrCount} {docCount} {isReady} {loading} onReset={resetForm} />
+    <ReadinessPanel {fieldErrorCount} {binderOk} {qrCount} {docCount} isReady={ready} {loading} onReset={resetForm} />
   </form>
 
   <div class="contact-info">

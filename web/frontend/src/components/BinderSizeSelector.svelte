@@ -1,19 +1,21 @@
 <script lang="ts">
   import type { BinderSize, DocType } from '../lib/types';
+  import { allowedBinderSizes } from '../lib/domain';
   import { Ruler, BookOpen, Book, Library } from 'lucide-svelte';
 
   export let value: BinderSize | null;
   export let docType: DocType;
   export let invalid = false;
 
-  // 과제 문서(doc_type=2)는 3cm 미만(1) 바인더를 숨긴다.
-  $: hide1cm = docType === '2';
+  // 허용 바인더 크기는 도메인 규칙(allowedBinderSizes)에서 — 과제는 1cm 제외.
+  $: allowed = allowedBinderSizes(docType);
+  $: show1cm = allowed.includes(1);
 </script>
 
 <div class="form-group">
   <span class="field-label">바인더 크기</span>
   <div class="option-group binder-size-group" class:invalid>
-    {#if !hide1cm}
+    {#if show1cm}
       <button
         type="button"
         class="option-button"

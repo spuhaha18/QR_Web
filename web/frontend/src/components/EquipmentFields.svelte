@@ -1,12 +1,11 @@
 <script lang="ts">
   import type { EquipmentForm } from '../lib/types';
+  import { REQUIRED_EQUIPMENT_FIELDS as FIELDS } from '../lib/domain';
   import { FileText } from 'lucide-svelte';
 
   export let data: EquipmentForm;
   export let errors: Record<string, string> = {};
   export let showAll = false;
-
-  const FIELDS = ['eq_number', 'eq_doc_number', 'eq_doc_title', 'eq_doc_count', 'eq_doc_department', 'eq_doc_year'];
   let touched: Record<string, boolean> = {};
   const blur = (f: string) => (touched = { ...touched, [f]: true });
   $: vis = Object.fromEntries(

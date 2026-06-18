@@ -1,5 +1,8 @@
-export type DocType = '1' | '2';
-export type BinderSize = 1 | 3 | 5 | 7;
+// DocType / BinderSize are defined in the domain module (the single source the
+// backend parity test checks); imported for the form shapes below and
+// re-exported so existing `./types` consumers keep working.
+import type { DocType, BinderSize } from './domain';
+export type { DocType, BinderSize };
 
 export interface EquipmentForm {
   eq_number: string;

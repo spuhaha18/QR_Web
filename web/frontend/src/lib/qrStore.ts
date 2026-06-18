@@ -4,7 +4,7 @@ import { showError } from './toast';
 export interface QrItem {
   id: string;
   blob: Blob;
-  hash: string;
+  fingerprint: string;
   url: string;
 }
 
@@ -32,15 +32,15 @@ export function fingerprint(arrayBuffer: ArrayBuffer): string {
 /** Add a blob with duplicate detection. Returns true if added. */
 export async function addBlob(blob: Blob): Promise<boolean> {
   const buf = await blob.arrayBuffer();
-  const hash = fingerprint(buf);
+  const fp = fingerprint(buf);
   const current = get(qrItems);
-  if (current.some((img) => img.hash === hash)) {
+  if (current.some((img) => img.fingerprint === fp)) {
     showError('중복된 QR 이미지입니다.');
     return false;
   }
   const url = URL.createObjectURL(blob);
   const id = `qr_${nextId++}`;
-  qrItems.update((list) => [...list, { id, blob, hash, url }]);
+  qrItems.update((list) => [...list, { id, blob, fingerprint: fp, url }]);
   return true;
 }
 

@@ -1,12 +1,11 @@
 <script lang="ts">
   import type { ProjectForm } from '../lib/types';
+  import { REQUIRED_PROJECT_FIELDS as FIELDS } from '../lib/domain';
   import { FlaskConical } from 'lucide-svelte';
 
   export let data: ProjectForm;
   export let errors: Record<string, string> = {};
   export let showAll = false;
-
-  const FIELDS = ['pjt_number', 'pjt_test_number', 'pjt_doc_title', 'pjt_doc_writer', 'pjt_doc_count'];
   let touched: Record<string, boolean> = {};
   const blur = (f: string) => (touched = { ...touched, [f]: true });
   $: vis = Object.fromEntries(

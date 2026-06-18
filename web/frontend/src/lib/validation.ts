@@ -1,43 +1,50 @@
 import type { EquipmentForm, ProjectForm } from './types';
+import { REQUIRED_EQUIPMENT_FIELDS, REQUIRED_PROJECT_FIELDS } from './domain';
 
 export type FieldErrors = Record<string, string>;
 
-const REQUIRED_EQ: Record<string, string> = {
+// Per-field user-facing messages (UX concern; the canonical field LISTS live in
+// the domain module and are parity-checked against the backend).
+const MESSAGES: Record<string, string> = {
   eq_number: '마스터코드를 입력하세요.',
   eq_doc_number: '문서 번호를 입력하세요.',
   eq_doc_title: '문서 제목을 입력하세요.',
+  eq_doc_count: '권수는 1 이상이어야 합니다.',
   eq_doc_department: '작성 부서를 입력하세요.',
-};
-
-const REQUIRED_PJ: Record<string, string> = {
+  // 연도는 필수. 빈 값을 허용하면 서버가 조용히 현재년으로 대체해 사용자가
+  // 의도하지 않은 연도의 라벨을 받게 되므로, 빈 값/비정수를 오류로 잡는다.
+  eq_doc_year: '연도를 입력하세요.',
   pjt_number: '과제 코드를 입력하세요.',
   pjt_test_number: '시험 번호를 입력하세요.',
   pjt_doc_title: '문서 제목을 입력하세요.',
   pjt_doc_writer: '연구 담당자를 입력하세요.',
+  pjt_doc_count: '권수는 1 이상이어야 합니다.',
 };
+
+// Fields validated as a positive integer (≥1) rather than non-empty text.
+const NUMERIC_FIELDS = new Set(['eq_doc_count', 'eq_doc_year', 'pjt_doc_count']);
 
 function isPositiveInt(v: unknown): boolean {
   const n = Number(v);
   return Number.isInteger(n) && n >= 1;
 }
 
-export function validateEquipment(e: EquipmentForm): FieldErrors {
+function validate(form: Record<string, unknown>, fields: readonly string[]): FieldErrors {
   const errors: FieldErrors = {};
-  for (const [k, msg] of Object.entries(REQUIRED_EQ)) {
-    if (!String((e as unknown as Record<string, unknown>)[k] ?? '').trim()) errors[k] = msg;
+  for (const f of fields) {
+    if (NUMERIC_FIELDS.has(f)) {
+      if (!isPositiveInt(form[f])) errors[f] = MESSAGES[f];
+    } else if (!String(form[f] ?? '').trim()) {
+      errors[f] = MESSAGES[f];
+    }
   }
-  if (!isPositiveInt(e.eq_doc_count)) errors.eq_doc_count = '권수는 1 이상이어야 합니다.';
-  // 연도는 필수. 빈 값을 허용하면 서버가 조용히 현재년으로 대체해 사용자가
-  // 의도하지 않은 연도의 라벨을 받게 되므로, 빈 값/비정수를 오류로 잡는다.
-  if (!isPositiveInt(e.eq_doc_year)) errors.eq_doc_year = '연도를 입력하세요.';
   return errors;
 }
 
+export function validateEquipment(e: EquipmentForm): FieldErrors {
+  return validate(e as unknown as Record<string, unknown>, REQUIRED_EQUIPMENT_FIELDS);
+}
+
 export function validateProject(p: ProjectForm): FieldErrors {
-  const errors: FieldErrors = {};
-  for (const [k, msg] of Object.entries(REQUIRED_PJ)) {
-    if (!String((p as unknown as Record<string, unknown>)[k] ?? '').trim()) errors[k] = msg;
-  }
-  if (!isPositiveInt(p.pjt_doc_count)) errors.pjt_doc_count = '권수는 1 이상이어야 합니다.';
-  return errors;
+  return validate(p as unknown as Record<string, unknown>, REQUIRED_PROJECT_FIELDS);
 }
