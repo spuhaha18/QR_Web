@@ -16,6 +16,7 @@
 - 백엔드는 최종 검증 권위 — 클라 검증은 UX 보조. 한국어 에러 문구 보존.
 - 제출 버튼은 `isReady`(필드 에러 0 && QR 수 == 권수) 전까지 비활성.
 - 초기화는 문서타입/바인더 유지, 필드·QR만 리셋, 확인창 없음.
+- **색은 하드코딩 hex 금지 — 기존 테마 변수 사용**: 성공/일치 `var(--success-text)`, 에러/초과 `var(--error-text)`, 중립 `var(--text-muted)`. (이 변수들은 `[data-theme="dark"]`에서 재정의되어 다크모드 대비 자동 처리됨.)
 - `/browse` 바이너리: `B="$HOME/.claude/skills/gstack/browse/dist/browse"`. go 빌드 필요시 `export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH" && make build`. 앱 기동 `PORT=5090 ./bin/qrweb &`.
 
 ---
@@ -241,10 +242,10 @@ git commit -m "feat(frontend): QR counter shows state hint (under/ok/over)"
 
 `web/frontend/src/styles/style.css`에 추가:
 ```css
-.field-error { display: block; margin-top: 4px; font-size: 0.8rem; color: #dc2626; font-weight: 600; }
-input.invalid { border-color: #dc2626 !important; }
-input.invalid:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important; }
-.section-check { color: #16a34a; font-weight: 800; margin-left: 6px; }
+.field-error { display: block; margin-top: 4px; font-size: 0.8rem; color: var(--error-text); font-weight: 600; }
+input.invalid { border-color: var(--error-text) !important; }
+input.invalid:focus { box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15) !important; }
+.section-check { color: var(--success-text); font-weight: 800; margin-left: 6px; }
 ```
 
 - [ ] **Step 4: 빌드 확인**
@@ -318,8 +319,8 @@ git commit -m "feat(frontend): inline field errors with blur/submit touched disp
 ```css
 .readiness-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface-color); }
 .readiness-checklist { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.readiness-checklist li { font-weight: 600; color: #dc2626; }
-.readiness-checklist li.ok { color: #16a34a; }
+.readiness-checklist li { font-weight: 600; color: var(--error-text); }
+.readiness-checklist li.ok { color: var(--success-text); }
 .readiness-checklist .rc-mark { font-weight: 800; margin-right: 6px; }
 .readiness-actions { display: flex; gap: 12px; align-items: stretch; }
 .readiness-actions .submit-btn { flex: 1; }
