@@ -73,6 +73,7 @@
   $: docCount =
     docType === '1' ? Number(equipment.eq_doc_count) || 1 : Number(project.pjt_doc_count) || 1;
 
+  let formKey = 0;
   let submitAttempted = false;
   $: errors = docType === '1' ? validateEquipment(equipment) : validateProject(project);
   $: fieldErrorCount = Object.keys(errors).length;
@@ -100,6 +101,7 @@
     project = { pjt_number: '', pjt_test_number: '', pjt_doc_title: '', pjt_doc_writer: '', pjt_doc_count: 1 };
     clearItems();
     submitAttempted = false;
+    formKey++;
   }
   onMount(() => {
     (document.querySelector('#label-form input[type="text"]') as HTMLInputElement | null)?.focus();
@@ -142,11 +144,13 @@
         <BinderSizeSelector bind:value={binderSize} {docType} />
       </div>
 
-      {#if docType === '1'}
-        <EquipmentFields bind:data={equipment} {errors} showAll={submitAttempted} />
-      {:else}
-        <ProjectFields bind:data={project} {errors} showAll={submitAttempted} />
-      {/if}
+      {#key formKey}
+        {#if docType === '1'}
+          <EquipmentFields bind:data={equipment} {errors} showAll={submitAttempted} />
+        {:else}
+          <ProjectFields bind:data={project} {errors} showAll={submitAttempted} />
+        {/if}
+      {/key}
 
       <div class="form-section" id="qr_section">
         <div class="section-title"><QrCode size={20} /> QR 이미지 {#if qrCount === docCount}<span class="section-check">✓</span>{/if}</div>
