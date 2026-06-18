@@ -14,7 +14,7 @@
 | 5 에러→HTTP 매핑 중앙화 | `a850590` | ✅ |
 | 6 프론트 도메인 모듈 + vitest | `1ae8c71` | ✅ |
 | 7 계약 패리티 테스트 | `1ae8c71` | ✅ |
-잔여: 후보4(qr.go CP949) ADR 기록 — 미작성.
+후보4(qr.go CP949) 비적용 → ADR 기록 완료: `docs/adr/0001-cp949-encoding-stays-in-qr-generation.md`.
 
 ---
 
@@ -85,7 +85,7 @@
 3. 교차경계(Phase 7) — Phase 6 응집 완료 후, 선택안 확정 후.
 4. 각 단계: 구현 → `go test -count=1 ./...` 그린 + golden 14/14 → 커밋. 단계 독립 커밋.
 5. 패리티 직결(Excel/border) 변경은 출력 바이트 동일 보장(Sprintf 동일 문자열) 원칙 유지.
-6. 후보4(qr.go CP949 분리)는 의도적 비적용 — ADR 기록 예정(EncodeCP949 seam 유지가 근거).
+6. 후보4(qr.go CP949 분리)는 의도적 비적용 — ADR 기록됨(`docs/adr/0001`, EncodeCP949 seam 유지가 근거).
 
 ## 비범위
 - Python 레거시(app.py 등) — 마이그레이션 참조 원천(freeze), DDD 대상 아님.
