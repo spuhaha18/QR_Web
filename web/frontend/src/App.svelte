@@ -14,6 +14,7 @@
   import QrDropzone from './components/QrDropzone.svelte';
   import QrThumbnails from './components/QrThumbnails.svelte';
   import ManualModal from './components/ManualModal.svelte';
+  import LogsModal from './components/LogsModal.svelte';
   import ReadinessPanel from './components/ReadinessPanel.svelte';
 
   import {
@@ -22,7 +23,6 @@
     Moon,
     Sun,
     ClipboardList,
-    FileJson2,
     BookOpen,
     Info,
     User,
@@ -54,6 +54,7 @@
   let displayItems: QrItem[] = [];
   let loading = false;
   let manualOpen = false;
+  let logsOpen = false;
 
   // 다크모드 토글
   let theme: 'light' | 'dark' =
@@ -125,12 +126,9 @@
   </div>
 
   <div class="header-links">
-    <a href="/logs" class="header-link">
+    <button type="button" class="header-link" on:click={() => (logsOpen = true)}>
       <ClipboardList size={18} /> 시스템 로그
-    </a>
-    <a href="/api/docs" class="header-link">
-      <FileJson2 size={18} /> API 문서
-    </a>
+    </button>
     <button type="button" class="header-link" on:click={() => (manualOpen = true)}>
       <BookOpen size={18} /> 사용 설명서
     </button>
@@ -195,4 +193,5 @@
 </div>
 
 <ManualModal open={manualOpen} onClose={() => (manualOpen = false)} />
+<LogsModal open={logsOpen} onClose={() => (logsOpen = false)} />
 <Toast />
