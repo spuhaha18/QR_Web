@@ -101,7 +101,9 @@
     clearItems();
     submitAttempted = false;
   }
-  onMount(() => { (document.getElementById('eq_number') as HTMLInputElement | null)?.focus(); });
+  onMount(() => {
+    (document.querySelector('#label-form input[type="text"]') as HTMLInputElement | null)?.focus();
+  });
 </script>
 
 <svelte:head>
@@ -159,13 +161,6 @@
 
     <ReadinessPanel {fieldErrorCount} {qrCount} {docCount} {isReady} {loading} onReset={resetForm} />
   </form>
-
-  {#if loading}
-    <div class="loading" style="display:block;">
-      <div class="spinner"></div>
-      <p style="color: var(--text-muted); font-weight: 600;">라벨을 생성하는 중...</p>
-    </div>
-  {/if}
 
   <div class="contact-info">
     <div class="contact-title"><Info size={18} /> 담당자 정보</div>
