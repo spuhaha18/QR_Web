@@ -229,6 +229,11 @@ h1 {
     gap: 20px;
 }
 
+/* 총 권수 · 작성 부서 · 연도 한 줄: 권수/연도 좁게, 부서 가변 */
+.form-row.form-row-triple {
+    grid-template-columns: 96px 1fr 104px;
+}
+
 .form-group {
     margin-bottom: 20px;
     position: relative;
@@ -544,6 +549,7 @@ select {
     .theme-toggle { top: 16px; right: 16px; }
 
     .form-row { grid-template-columns: 1fr; gap: 0; }
+    .form-row.form-row-triple { grid-template-columns: 1fr; }
 
     .option-group.binder-size-group {
         grid-template-columns: 1fr 1fr;

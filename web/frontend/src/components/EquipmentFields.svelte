@@ -40,7 +40,7 @@
       class:invalid={vis.eq_doc_title} on:blur={() => blur('eq_doc_title')} />
     {#if vis.eq_doc_title}<span class="field-error">{vis.eq_doc_title}</span>{/if}
   </div>
-  <div class="form-row">
+  <div class="form-row form-row-triple">
     <div class="form-group">
       <label for="eq_doc_count">총 권수</label>
       <input type="number" id="eq_doc_count" bind:value={data.eq_doc_count} min="1"
