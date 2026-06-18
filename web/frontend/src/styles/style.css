@@ -1193,3 +1193,15 @@ input.invalid { border-color: var(--error-text) !important; }
 input.invalid:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-text) 15%, transparent) !important; }
 .section-check { color: var(--success-text); font-weight: 800; margin-left: 6px; }
 
+/* ===== 준비상태 패널 (Task 4) ===== */
+.readiness-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface-color); }
+.readiness-checklist { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.readiness-checklist li { font-weight: 600; color: var(--error-text); }
+.readiness-checklist li.ok { color: var(--success-text); }
+.readiness-checklist .rc-mark { font-weight: 800; margin-right: 6px; }
+.readiness-actions { display: flex; gap: 12px; align-items: stretch; }
+.readiness-actions .submit-btn { flex: 1; }
+.reset-btn { display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; border: 1px solid var(--border-color); border-radius: 10px; background: transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; }
+.reset-btn:hover:not(:disabled) { background: var(--border-color); }
+.reset-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
