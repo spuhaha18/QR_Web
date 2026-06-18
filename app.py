@@ -361,6 +361,12 @@ def api_docs():
     log_client_access("API documentation page")
     return render_template('api_docs.html')
 
+@app.route('/manual')
+def manual_page():
+    """사용 설명서 본문 (모달에 fetch로 주입되는 프래그먼트)"""
+    log_client_access("Manual page")
+    return render_template('manual.html')
+
 @app.route('/api/performance', methods=['GET'])
 def api_performance():
     """성능 통계 API"""

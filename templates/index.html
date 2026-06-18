@@ -23,6 +23,16 @@
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
+            if (typeof applyManualTheme === 'function') applyManualTheme();
+        }
+
+        // 설명서 스크린샷 다크/라이트 전환
+        function applyManualTheme() {
+            const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+            document.querySelectorAll('#manualBody .manual-shot[data-light]').forEach(function (img) {
+                const next = dark ? img.getAttribute('data-dark') : img.getAttribute('data-light');
+                if (next && img.getAttribute('src') !== next) img.setAttribute('src', next);
+            });
         }
 
         function selectDocType(element) {
@@ -160,9 +170,62 @@
             }, 4000);
         }
 
+        // ===== 사용 설명서 모달 =====
+        let manualLoaded = false;
+
+        async function openManual() {
+            const modal = document.getElementById('manualModal');
+            const body = document.getElementById('manualBody');
+            if (!manualLoaded) {
+                try {
+                    const res = await fetch('/manual');
+                    body.innerHTML = await res.text();
+                    lucide.createIcons({root: body});
+                    bindManualToc();
+                    applyManualTheme();
+                    manualLoaded = true;
+                } catch (e) {
+                    body.innerHTML = '<p style="padding:24px;">설명서를 불러오지 못했습니다.</p>';
+                }
+            }
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeManual() {
+            document.getElementById('manualModal').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function bindManualToc() {
+            const content = document.querySelector('#manualBody .manual-content');
+            document.querySelectorAll('#manualBody .manual-toc a').forEach(function (a) {
+                a.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector('#manualBody ' + a.getAttribute('href'));
+                    if (target && content) {
+                        content.scrollTo({top: target.offsetTop - content.offsetTop - 8, behavior: 'smooth'});
+                    }
+                    document.querySelectorAll('#manualBody .manual-toc a').forEach(function (x) { x.classList.remove('active'); });
+                    a.classList.add('active');
+                });
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             updateFormFields();
             lucide.createIcons();
+
+            // 모달 백드롭 클릭 / ESC 닫기
+            const modal = document.getElementById('manualModal');
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) closeManual();
+                });
+            }
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeManual();
+            });
         });
     </script>
 </head>
@@ -205,6 +268,25 @@
                 <i data-lucide="file-json-2"></i>
                 API 문서
             </a>
+            <button type="button" class="header-link" onclick="openManual()">
+                <i data-lucide="book-open"></i>
+                사용 설명서
+            </button>
+        </div>
+
+        <!-- 사용 설명서 모달 -->
+        <div class="manual-modal" id="manualModal" role="dialog" aria-modal="true" aria-label="사용 설명서">
+            <div class="manual-card">
+                <div class="manual-card-head">
+                    <span class="manual-card-title"><i data-lucide="book-open"></i> 사용 설명서</span>
+                    <button type="button" class="manual-close" onclick="closeManual()" aria-label="닫기">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="manual-body" id="manualBody">
+                    <div class="manual-loading">불러오는 중…</div>
+                </div>
+            </div>
         </div>
 
         <form action="/create_label" method="post" enctype="multipart/form-data" id="label-form">
