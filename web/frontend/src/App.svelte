@@ -13,7 +13,6 @@
   import QrThumbnails from './components/QrThumbnails.svelte';
   import ManualModal from './components/ManualModal.svelte';
 
-  import logoUrl from './assets/logo.png';
   import {
     Settings2,
     QrCode,
@@ -54,7 +53,6 @@
   let displayItems: QrItem[] = [];
   let loading = false;
   let manualOpen = false;
-  let logoFailed = false;
 
   // 다크모드 토글
   let theme: 'light' | 'dark' =
@@ -141,11 +139,7 @@
 
   <div class="header-container">
     <div class="company-logo">
-      {#if logoFailed}
-        <span class="logo-text">inno.N</span>
-      {:else}
-        <img src={logoUrl} alt="inno.N Logo" class="company-logo-img" on:error={() => (logoFailed = true)} />
-      {/if}
+      <span class="logo-text">inno.N</span>
     </div>
     <h1>연구소 바인더 라벨 제작 프로그램</h1>
   </div>
