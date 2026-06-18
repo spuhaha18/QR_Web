@@ -434,9 +434,9 @@ select {
 }
 
 .contact-details {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
 }
 
 .contact-item {
@@ -444,6 +444,8 @@ select {
     align-items: center;
     gap: 12px;
     font-size: 0.95rem;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .contact-icon {
@@ -478,6 +480,7 @@ select {
 .contact-value {
     color: var(--text-main);
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .contact-link {
@@ -547,7 +550,7 @@ select {
     }
 
     .contact-details {
-        grid-template-columns: 1fr;
+        flex-direction: column;
     }
 }
 
