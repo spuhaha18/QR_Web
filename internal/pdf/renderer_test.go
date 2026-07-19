@@ -41,6 +41,26 @@ func TestRenderMainEquipmentSmoke(t *testing.T) {
 	}
 }
 
+func TestRenderMainProjectSmoke(t *testing.T) {
+	doc := newDoc()
+	doc.AddPage()
+	lbl := label.ProjectLabel{
+		PjtNumber: "PJ-1", PjtTestNumber: "T-1", PjtDocTitle: "과제 제목",
+		PjtDocWriter: "작성자", PjtDocCount: 2,
+	}
+	b, _ := label.ParseBinderSize("5", label.DocTypeProject)
+	if err := renderMain(doc, 10, 10, label.DocTypeProject, b, lbl, "1/2", testQRPNG(t), "qr_p0"); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := doc.Output(&buf); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(buf.Bytes(), []byte("%PDF")) {
+		t.Error("not a PDF")
+	}
+}
+
 func TestQRSideShrinksForNarrowBox(t *testing.T) {
 	if got := qrSide(15.875, 23.8125); got != 15.875 {
 		t.Errorf("qrSide narrow = %v, want 15.875", got)

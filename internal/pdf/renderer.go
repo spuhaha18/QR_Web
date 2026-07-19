@@ -70,16 +70,13 @@ func renderMain(doc *fpdf.Fpdf, x, y float64, dt label.DocType, b label.BinderSi
 
 	// Value rows: rows 2..6 always, row 7 for equipment. x spans B..M.
 	xl, xr := x+g.colX[1], x+g.colX[13]
-	lastValueRow := 6
-	if dt == label.DocTypeEquipment {
-		lastValueRow = 7
-	}
+	layout := dt.Layout()
+	lastValueRow := layout.QRBoxTopRow - 1
 	for r := 2; r <= lastValueRow; r++ {
 		rect(doc, xl, y+g.rowY[r-1], xr, y+g.rowY[r], thinMM)
 	}
 
 	// QR box.
-	layout := dt.Layout()
 	boxTop, boxBot := y+g.rowY[layout.QRBoxTopRow-1], y+g.rowY[17]
 	rect(doc, xl, boxTop, xr, boxBot, thinMM)
 
