@@ -1,6 +1,6 @@
 // Package httpx holds the Fiber HTTP layer, porting the routes/handlers of
 // app.py. The temp-file lifecycle (uploads/, /download, file_lifecycle) is
-// removed: .xlsx is generated in memory and streamed directly. The performance
+// removed: the label PDF is generated in memory and streamed directly. The performance
 // and system endpoints are dropped; the log viewer endpoints are kept.
 package httpx
 
@@ -13,9 +13,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"qrweb/internal/config"
-	"qrweb/internal/excel"
 	"qrweb/internal/label"
 	"qrweb/internal/logging"
+	"qrweb/internal/pdf"
 	"qrweb/internal/qr"
 	"qrweb/web"
 )
@@ -25,7 +25,7 @@ type Server struct {
 	app *fiber.App
 	cfg *config.Config
 	log *logging.Logger
-	gen *excel.Generator
+	gen *pdf.Generator
 }
 
 // New builds the Fiber app, registers middleware and all routes, and returns
@@ -43,7 +43,7 @@ func New(cfg *config.Config, log *logging.Logger) *Server {
 		app: app,
 		cfg: cfg,
 		log: log,
-		gen: excel.NewGenerator(),
+		gen: pdf.NewGenerator(),
 	}
 
 	// recover: panic -> {"error":"서버 오류가 발생했습니다."} 500 (handle_errors parity).
@@ -70,8 +70,8 @@ func (s *Server) Listen() error {
 // the embedded SPA is mounted last as a catch-all at "/".
 func (s *Server) registerRoutes() {
 	// Label creation.
-	s.app.Post("/create_label", s.handleCreateLabelPaste)    // paste mode, multipart -> .xlsx
-	s.app.Post("/api/create_label", s.handleCreateLabelAuto) // auto mode, JSON -> .xlsx (base64)
+	s.app.Post("/create_label", s.handleCreateLabelPaste)    // paste mode, multipart -> .pdf
+	s.app.Post("/api/create_label", s.handleCreateLabelAuto) // auto mode, JSON -> .pdf (base64)
 
 	// QR image.
 	s.app.Get("/api/qr_image/*", s.handleQRImage)

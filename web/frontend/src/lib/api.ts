@@ -11,7 +11,7 @@ import type { QrItem } from './qrStore';
  *     entry is the INSERTION index of the image shown at DISPLAY position i.
  *     The backend reorders insertion-order files by this permutation.
  *
- * On success the server streams an .xlsx binary; we read the
+ * On success the server streams a .pdf binary; we read the
  * Content-Disposition filename and trigger a download via <a download>.
  *
  * @param insertionItems QR items in insertion order (qrStore order).
@@ -90,5 +90,5 @@ function parseFilename(disposition: string): string {
   if (plain) {
     return plain[1].trim();
   }
-  return '라벨.xlsx';
+  return '라벨.pdf';
 }

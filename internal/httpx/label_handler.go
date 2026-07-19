@@ -16,7 +16,7 @@ import (
 
 // handleCreateLabelPaste ports POST /create_label (paste mode, multipart).
 // The client supplies one QR PNG per document copy plus a qr_order permutation;
-// the server reorders the bytes and embeds them. The .xlsx is streamed back
+// the server reorders the bytes and embeds them. The .pdf is streamed back
 // directly (no temp file). Validation order and Korean error strings are
 // preserved byte-for-byte from app.py.
 func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
@@ -75,20 +75,20 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 		return fail(c, err)
 	}
 
-	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, qrSet)
+	data, filename, err := s.gen.CreateLabelPDF(docType, binderSize, lbl, qrSet)
 	if err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
 
 	s.log.Info("Paste-mode label generated: %s for %s", filename, c.IP())
-	return sendXLSX(c, data, filename)
+	return sendPDF(c, data, filename)
 }
 
 // handleCreateLabelAuto ports POST /api/create_label (auto mode, JSON). The
 // server generates one QR per sheet from the label payload, embeds them, and
-// returns the .xlsx. To preserve the existing success-shaped JSON contract
+// returns the .pdf. To preserve the existing success-shaped JSON contract
 // (test asserts success==true) while dropping the temp-file download_url, the
-// workbook bytes are returned inline as base64.
+// PDF bytes are returned inline as base64.
 func (s *Server) handleCreateLabelAuto(c *fiber.Ctx) error {
 	var body map[string]any
 	if err := json.Unmarshal(c.Body(), &body); err != nil || len(body) == 0 {
@@ -117,7 +117,7 @@ func (s *Server) handleCreateLabelAuto(c *fiber.Ctx) error {
 		return fail(c, err)
 	}
 
-	data, filename, err := s.gen.CreateLabelExcel(docType, binderSize, lbl, qrSet)
+	data, filename, err := s.gen.CreateLabelPDF(docType, binderSize, lbl, qrSet)
 	if err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
@@ -128,16 +128,16 @@ func (s *Server) handleCreateLabelAuto(c *fiber.Ctx) error {
 		"message":      "라벨이 성공적으로 생성되었습니다.",
 		"filename":     filename,
 		"file_base64":  base64.StdEncoding.EncodeToString(data),
-		"content_type": xlsxContentType,
+		"content_type": pdfContentType,
 	})
 }
 
-const xlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+const pdfContentType = "application/pdf"
 
-// sendXLSX streams the workbook bytes as an attachment.
-func sendXLSX(c *fiber.Ctx, data []byte, filename string) error {
+// sendPDF streams the PDF bytes as an attachment.
+func sendPDF(c *fiber.Ctx, data []byte, filename string) error {
 	c.Set("Content-Disposition", contentDisposition(filename))
-	c.Set(fiber.HeaderContentType, xlsxContentType)
+	c.Set(fiber.HeaderContentType, pdfContentType)
 	return c.Send(data)
 }
 
@@ -165,7 +165,7 @@ func asciiFallbackName(s string) string {
 	if out := b.String(); out != "" {
 		return out
 	}
-	return "label.xlsx"
+	return "label.pdf"
 }
 
 // rfc5987Encode percent-encodes a UTF-8 string per RFC 5987 ext-value: every
