@@ -66,7 +66,7 @@
 
 ### 폰트
 
-- 기본 폰트 Times New Roman(times.ttf, bold는 timesbd.ttf), 한글 글리프는 바탕체 폴백 — go-pdf/fpdf의 `SetFallbackFonts` 사용 (혼합 문자열에서 글리프 단위 폴백).
+- 기본 폰트 Times New Roman(times.ttf, bold는 timesbd.ttf), 한글 글리프는 바탕체 — fpdf v0.9.0/gopdf v0.37.0 모두 글리프 폴백 미지원 확인(구현 중 검증). 폴백은 자체 런 분할로 구현: rune U+2E80 미만 → Times, 이상(한글/CJK/전각) → 바탕. 측정·줄바꿈·렌더 모두 런 단위 폰트 전환.
 - 폰트 파일은 사용자 제공 완료 — `fonts/` (TIMES.TTF, TIMESBD.TTF, TIMESI.TTF, TIMESBI.TTF, BATANG.TTC). 구현 시 `internal/pdf/fonts/`로 복사(또는 참조)해 `go:embed`로 바이너리에 포함. 이탤릭 2종은 현재 라벨에 미사용 — 임베드 제외.
 - batang.ttc는 TTC 컬렉션 — fpdf가 TTC를 못 읽으면 첫 face를 TTF로 추출해 사용 (구현 시 확인).
 - 바탕체는 bold face가 없음 — 한글은 바탕 regular로 렌더(확정, grill Q4). T9 시각 확인에서 너무 얇으면 synthetic bold 재검토.
