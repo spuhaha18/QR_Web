@@ -110,7 +110,10 @@ func wrapText(doc *fpdf.Fpdf, sizePt float64, s string, maxW float64) []string {
 	}
 	for _, r := range s {
 		rw, fam := runeWidth(doc, sizePt, r, prevFamily)
-		if lineW+rw > maxW && len(line) > 0 {
+		// Loop, not if: one flush may leave a non-empty remainder (text
+		// after the last space) that still doesn't fit alongside r, so
+		// re-check after every flush until it fits or the line is empty.
+		for lineW+rw > maxW && len(line) > 0 {
 			cut := len(line)
 			if lastSpace >= 0 {
 				cut = lastSpace + 1
@@ -135,13 +138,27 @@ func wrapText(doc *fpdf.Fpdf, sizePt float64, s string, maxW float64) []string {
 }
 
 // fitText wraps at baseSizePt and shrinks in 0.5pt steps until the block
-// fits the box (grill Q2: floor 2pt, never truncate).
+// fits the box (grill Q2: floor 2pt, never truncate). Acceptance requires
+// BOTH the height budget and every line's width to fit — wrapText breaks
+// at rune granularity, so a single rune wider than availW (rare, but
+// possible at large sizes) can still overflow a line; the explicit width
+// check makes the box-fit guarantee direct instead of relying on the
+// height shrink loop to incidentally shrink it away too.
 func fitText(doc *fpdf.Fpdf, text string, baseSizePt, boxW, boxH float64) (float64, []string) {
 	availW, availH := boxW-textPadMM, boxH-textPadMM
 	size := baseSizePt
 	for {
 		lines := wrapText(doc, size, text, availW)
-		if float64(len(lines))*lineHeightMM(size) <= availH || size <= minFontPt {
+		fits := float64(len(lines))*lineHeightMM(size) <= availH
+		if fits {
+			for _, l := range lines {
+				if textWidth(doc, size, l) > availW {
+					fits = false
+					break
+				}
+			}
+		}
+		if fits || size <= minFontPt {
 			return size, lines
 		}
 		size -= 0.5

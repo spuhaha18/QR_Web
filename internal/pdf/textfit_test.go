@@ -129,3 +129,60 @@ func TestWrapTextMeasuresConsecutiveWhitespaceLikeSplitRuns(t *testing.T) {
 		}
 	}
 }
+
+// TestWrapTextRechecksFitAfterFlush guards against the flush-then-append-
+// unconditionally bug: after flush() cuts the line at the last space, the
+// remainder (text after that space) plus the triggering rune can still
+// exceed maxW - the fit check must loop, not run once. Reproduces with an
+// ASCII-then-CJK mix (post-flush remainder is non-empty ASCII) and with a
+// leading space and no internal break point (post-flush remainder is the
+// literal space, forcing a second flush to empty the line). Swept across a
+// wide range of maxW so the regression isn't tied to one lucky width.
+func TestWrapTextRechecksFitAfterFlush(t *testing.T) {
+	doc := newDoc()
+	doc.AddPage()
+	const size = 16.0
+
+	for _, s := range []string{"abc 한국어단어테스트", " 한글", strings.Repeat("가", 40)} {
+		// Below the widest single rune's own width, no wrap algorithm can
+		// satisfy the invariant (a lone glyph can't be split further); that
+		// is the pre-existing "no character is ever dropped" limitation,
+		// not the flush-recheck bug under test here (same exclusion as
+		// TestWrapTextMeasuresConsecutiveWhitespaceLikeSplitRuns above).
+		maxRuneW := 0.0
+		for _, r := range s {
+			if w := textWidth(doc, size, string(r)); w > maxRuneW {
+				maxRuneW = w
+			}
+		}
+		start := 3.0
+		if maxRuneW+0.01 > start {
+			start = maxRuneW + 0.01
+		}
+		for maxW := start; maxW <= 40.0; maxW += 0.5 {
+			for _, line := range wrapText(doc, size, s, maxW) {
+				if w := textWidth(doc, size, line); w > maxW+0.001 {
+					t.Errorf("wrapText(%q, maxW=%.1f) line %q width %v exceeds maxW", s, maxW, line, w)
+				}
+			}
+		}
+	}
+}
+
+// TestFitTextNarrowBoxGuaranteesWidthFit exercises fitText with a very
+// tight box so the wrap-then-shrink loop is forced through several
+// iterations, and asserts the explicit width guarantee: every returned
+// line fits boxW-textPadMM at the returned size (not just the height
+// budget).
+func TestFitTextNarrowBoxGuaranteesWidthFit(t *testing.T) {
+	doc := newDoc()
+	doc.AddPage()
+	boxW, boxH := 8.0, 20.0
+	size, lines := fitText(doc, "abc 한국어단어테스트", 16, boxW, boxH)
+	availW := boxW - textPadMM
+	for _, line := range lines {
+		if w := textWidth(doc, size, line); w > availW+0.001 {
+			t.Errorf("fitText line %q width %v exceeds availW %v at size %v", line, w, availW, size)
+		}
+	}
+}
