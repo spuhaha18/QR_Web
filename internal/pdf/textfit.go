@@ -67,18 +67,20 @@ func textWidth(doc *fpdf.Fpdf, sizePt float64, s string) float64 {
 	return w
 }
 
-// runeWidth measures one rune in its own family at sizePt. When r is a
-// space, prev supplies the preceding rune in the line so the space is
-// measured in the same family splitRuns will render it in — spaces are
-// sticky to the current run there (see TestSplitRunsMixed), and wrapText
-// must budget width identically or lines silently overflow their box.
-func runeWidth(doc *fpdf.Fpdf, sizePt float64, r rune, prev rune) float64 {
+// runeWidth measures one rune in its own family at sizePt. prevFamily is the
+// sticky run family carried from the runes measured so far in the line
+// (mirroring splitRuns' curFam) — for whitespace it wins over familyFor so
+// the space is measured in the same family splitRuns will render it in
+// (see TestSplitRunsMixed). wrapText must budget width identically or lines
+// silently overflow their box. Returns the width and the resolved family,
+// the latter to be threaded back in as prevFamily for the next rune.
+func runeWidth(doc *fpdf.Fpdf, sizePt float64, r rune, prevFamily string) (float64, string) {
 	fam := familyFor(r)
-	if r == ' ' && prev != 0 {
-		fam = familyFor(prev)
+	if unicode.IsSpace(r) && prevFamily != "" {
+		fam = prevFamily
 	}
 	doc.SetFont(fam, "B", sizePt)
-	return doc.GetStringWidth(string(r))
+	return doc.GetStringWidth(string(r)), fam
 }
 
 // wrapText greedily breaks s into lines no wider than maxW. Breaks at the
@@ -90,41 +92,38 @@ func wrapText(doc *fpdf.Fpdf, sizePt float64, s string, maxW float64) []string {
 	var line []rune
 	lineW := 0.0
 	lastSpace := -1
+	var prevFamily string
 	flush := func(cut int) {
 		lines = append(lines, strings.TrimRight(string(line[:cut]), " "))
 		line = append([]rune{}, line[cut:]...)
 		lineW = 0
 		lastSpace = -1
-		var prev rune
+		prevFamily = ""
 		for i, lr := range line {
-			lineW += runeWidth(doc, sizePt, lr, prev)
+			var w float64
+			w, prevFamily = runeWidth(doc, sizePt, lr, prevFamily)
+			lineW += w
 			if lr == ' ' {
 				lastSpace = i
 			}
-			prev = lr
 		}
 	}
-	var prev rune
 	for _, r := range s {
-		rw := runeWidth(doc, sizePt, r, prev)
+		rw, fam := runeWidth(doc, sizePt, r, prevFamily)
 		if lineW+rw > maxW && len(line) > 0 {
 			cut := len(line)
 			if lastSpace >= 0 {
 				cut = lastSpace + 1
 			}
 			flush(cut)
-			prev = 0
-			if len(line) > 0 {
-				prev = line[len(line)-1]
-			}
-			rw = runeWidth(doc, sizePt, r, prev)
+			rw, fam = runeWidth(doc, sizePt, r, prevFamily)
 		}
 		if r == ' ' {
 			lastSpace = len(line)
 		}
 		line = append(line, r)
 		lineW += rw
-		prev = r
+		prevFamily = fam
 	}
 	if len(line) > 0 {
 		lines = append(lines, string(line))

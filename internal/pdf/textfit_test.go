@@ -66,3 +66,66 @@ func TestFitTextLongShrinksAndFits(t *testing.T) {
 		}
 	}
 }
+
+// TestWrapTextMeasuresConsecutiveWhitespaceLikeSplitRuns guards against the
+// wrapText measurement loop diverging from splitRuns' sticky-family rule for
+// runs of whitespace adjacent to CJK text (double/triple spaces, tabs). Wrap
+// at a width that comfortably fits the whole string so no break occurs, then
+// the single returned line must be exactly the input and its measured width
+// (walking runs the same way drawTextBox/textWidth does) must match — if the
+// wrap loop under- or over-measures a run of spaces, this line's accumulated
+// lineW would drift from what splitRuns/textWidth compute for the same text,
+// and a tight-width wrap (checked below) would place breaks in the wrong
+// spot or let a line's rendered width exceed the box.
+func TestWrapTextMeasuresConsecutiveWhitespaceLikeSplitRuns(t *testing.T) {
+	doc := newDoc()
+	doc.AddPage()
+	const size = 16.0
+
+	// All four inputs: wide enough that wrapText never breaks, so the
+	// single returned line must be the untouched input and its width must
+	// match textWidth(s) exactly — a basic content/measurement sanity
+	// check that holds regardless of where a break would land.
+	for _, s := range []string{"한  글", "한   글", "한\t글", "바탕  Times"} {
+		lines := wrapText(doc, size, s, 500)
+		if len(lines) != 1 || lines[0] != s {
+			t.Fatalf("wrapText(%q) at wide width = %v, want single unbroken line", s, lines)
+		}
+		if w := textWidth(doc, size, lines[0]); w != textWidth(doc, size, s) {
+			t.Errorf("textWidth(wrapText(%q)) = %v, want %v", s, w, textWidth(doc, size, s))
+		}
+	}
+
+	// CJK-adjacent whitespace runs (double/triple space, tab): scan maxW
+	// across the whole range up to (and a bit past) the string's real
+	// width. The bug this guards against bites right at a break decision —
+	// the old code kept measuring a trailing whitespace rune too narrow
+	// (using the *previous rune's* family instead of the sticky run
+	// family), so it could decide "still fits" for a maxW where the true,
+	// splitRuns-consistent width already doesn't. A single hand-picked
+	// width can miss that window; scanning finds it wherever it falls.
+	// (Excludes "바탕  Times": a bare word with no internal space, like
+	// "Times", can force a break with no space to cut at — a separate,
+	// pre-existing greedy-wrap limitation unrelated to family stickiness
+	// that would confound this scan.)
+	for _, s := range []string{"한  글", "한   글", "한\t글"} {
+		full := textWidth(doc, size, s)
+		// Start above the widest single rune's own width: below that, no
+		// wrap algorithm can satisfy the invariant (a lone glyph can't be
+		// split further), which is expected ("no character is ever
+		// dropped") and not the bug under test.
+		maxRuneW := 0.0
+		for _, r := range s {
+			if w := textWidth(doc, size, string(r)); w > maxRuneW {
+				maxRuneW = w
+			}
+		}
+		for maxW := maxRuneW + 0.01; maxW <= full+2; maxW += 0.05 {
+			for _, line := range wrapText(doc, size, s, maxW) {
+				if w := textWidth(doc, size, line); w > maxW+0.001 {
+					t.Fatalf("wrapText(%q, maxW=%.2f) line %q width %v exceeds maxW", s, maxW, line, w)
+				}
+			}
+		}
+	}
+}
