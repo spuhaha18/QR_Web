@@ -587,6 +587,15 @@ func TestRenderMainEquipmentSmoke(t *testing.T) {
 	}
 }
 
+func TestQRSideShrinksForNarrowBox(t *testing.T) {
+	if got := qrSide(15.875, 23.8125); got != 15.875 {
+		t.Errorf("qrSide narrow = %v, want 15.875", got)
+	}
+	if got := qrSide(22.225, 23.8125); got != qrSizeMM {
+		t.Errorf("qrSide normal = %v, want %v", got, qrSizeMM)
+	}
+}
+
 func TestRenderAuxProjectSmoke(t *testing.T) {
 	doc := newDoc()
 	doc.AddPage()
@@ -645,6 +654,19 @@ func rect(doc *fpdf.Fpdf, x1, y1, x2, y2, lineW float64) {
 	doc.Rect(x1, y1, x2-x1, y2-y1, "D")
 }
 
+// qrSide returns the QR square side: 19.84mm, shrunk to fit a smaller box
+// (the 1cm binder's QR box is only ~15.9mm wide).
+func qrSide(boxW, boxH float64) float64 {
+	side := qrSizeMM
+	if boxW < side {
+		side = boxW
+	}
+	if boxH < side {
+		side = boxH
+	}
+	return side
+}
+
 // cellText returns the string form of a CellValues entry (year is an int).
 func cellText(v any) string {
 	switch t := v.(type) {
@@ -698,19 +720,15 @@ func renderMain(doc *fpdf.Fpdf, x, y float64, dt label.DocType, b label.BinderSi
 		drawTextBox(doc, xl, y+g.rowY[r-1], xr-xl, g.rowY[r]-g.rowY[r-1], text, sizeFor(fonts[addr]))
 	}
 
-	// QR centered in the box; clamp left/top to the piece edge like Excel
-	// clamps to the sheet edge when the QR is wider than the box.
-	qx := xl + ((xr - xl) - qrSizeMM) / 2.0
-	if qx < x {
-		qx = x
-	}
-	qy := boxTop + ((boxBot - boxTop) - qrSizeMM) / 2.0
-	if qy < y {
-		qy = y
-	}
+	// QR centered in the box, shrunk to fit when the box is smaller than
+	// 19.84mm (1cm binder) — grill Q1 decision: shrink, not Excel-style
+	// overflow.
+	side := qrSide(xr-xl, boxBot-boxTop)
+	qx := xl + ((xr - xl) - side) / 2.0
+	qy := boxTop + ((boxBot - boxTop) - side) / 2.0
 	opts := fpdf.ImageOptions{ImageType: "PNG"}
 	doc.RegisterImageOptionsReader(qrName, opts, bytes.NewReader(qrPNG))
-	doc.ImageOptions(qrName, qx, qy, qrSizeMM, qrSizeMM, false, opts, 0, "")
+	doc.ImageOptions(qrName, qx, qy, side, side, false, opts, 0, "")
 	return doc.Error()
 }
 

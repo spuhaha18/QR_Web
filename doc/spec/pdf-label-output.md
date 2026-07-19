@@ -24,6 +24,12 @@
 | 재단 가이드 | 5mm 간격 + 회색 점선 |
 | 렌더 방식 | Go PDF 라이브러리 (go-pdf/fpdf 또는 signintech/gopdf) 벡터 직접 렌더 |
 | 폰트 | 라틴/숫자 = Times New Roman, 한글 = 바탕체. 사용자가 원본 파일 제공(times.ttf/timesbd.ttf + batang.ttc). 폰트 크기(12/16/20/13pt)는 기존 유지 |
+| QR 오버플로 (grill Q1) | QR 박스가 19.84mm보다 작으면(1cm 장비 라벨) QR을 박스에 맞춰 정사각 축소 — Excel식 오버플로 대신 |
+| 축소 하한 (grill Q2) | 폰트 축소 하한 2pt, 도달 시 그대로 렌더(에러/경고 없음, 잘림 없음) |
+| 크기 보정 (grill Q3) | 보정 장치 없이 구현. T9 실측에서 오차 확인 시에만 전역 스케일 상수 1개 추가 |
+| 한글 굵게 (grill Q4) | 바탕 regular 그대로(synthetic bold 없음). T9 시각 확인 후 필요 시 재검토 |
+| doc_count 상한 (grill Q5) | 범위 밖 — 기존 무상한 동작 유지 |
+| 인쇄 안내 (grill Q6) | PDF에 안내 문구 없음. "실제 크기(100%) 인쇄"는 사내 매뉴얼로 |
 
 ## 크기 산출 (단일 소스)
 
@@ -55,7 +61,7 @@
   - 병합 셀(B2:M6 등) 텍스트: 병합 영역 중앙 정렬 + 줄바꿈(기존 global alignment center/center/wrap와 동일).
   - **자동 폰트 축소(모든 값 셀)**: 셀 박스 안에서 단어 줄바꿈 후에도 텍스트 블록이 박스를 넘치면(높이 초과, 또는 한 단어가 박스 폭 초과) 폰트 크기를 줄여 전부 들어갈 때까지 축소. 기준 크기는 셀별 기존 크기(12/16/20/13pt), 축소는 0.5pt 단위 이진/선형 탐색. 문서 제목(B4)뿐 아니라 라벨의 모든 입력 값 셀에 동일 적용. 잘림(truncation)은 절대 없음.
   - 셀 값/폰트 의도는 기존 `label.Label.CellValues()` / `CellFonts()` 도메인 계층을 그대로 소비 — 도메인 코드는 변경 없음.
-- QR: 기존 `internal/qr` PNG 생성 재사용. 75px ≈ 19.84mm 정사각형을 QR 박스(장비 B8:M17, 과제 B7:M17) 중앙에 배치. `DocType.Layout()`의 QRBoxTopRow/BottomRow 재사용.
+- QR: 기존 `internal/qr` PNG 생성 재사용. 75px ≈ 19.84mm 정사각형을 QR 박스(장비 B8:M17, 과제 B7:M17) 중앙에 배치. `DocType.Layout()`의 QRBoxTopRow/BottomRow 재사용. 박스가 19.84mm보다 작으면 QR 한 변 = min(19.84, 박스폭, 박스높이)로 정사각 축소(1cm 장비 라벨 해당).
 - i/N: 시트 복제 대신 라벨 조각을 N개 렌더하며 `Layout().CountCells`(B5, 과제는 S23) 값만 교체.
 
 ### 폰트
@@ -63,7 +69,7 @@
 - 기본 폰트 Times New Roman(times.ttf, bold는 timesbd.ttf), 한글 글리프는 바탕체 폴백 — go-pdf/fpdf의 `SetFallbackFonts` 사용 (혼합 문자열에서 글리프 단위 폴백).
 - 폰트 파일은 사용자 제공 완료 — `fonts/` (TIMES.TTF, TIMESBD.TTF, TIMESI.TTF, TIMESBI.TTF, BATANG.TTC). 구현 시 `internal/pdf/fonts/`로 복사(또는 참조)해 `go:embed`로 바이너리에 포함. 이탤릭 2종은 현재 라벨에 미사용 — 임베드 제외.
 - batang.ttc는 TTC 컬렉션 — fpdf가 TTC를 못 읽으면 첫 face를 TTF로 추출해 사용 (구현 시 확인).
-- 바탕체는 bold face가 없음 — 한글 굵게는 Excel과 동일하게 synthetic bold(외곽선 보강) 또는 regular로 렌더. 구현 시 시각 비교로 결정.
+- 바탕체는 bold face가 없음 — 한글은 바탕 regular로 렌더(확정, grill Q4). T9 시각 확인에서 너무 얇으면 synthetic bold 재검토.
 
 ## 구조 변경
 
