@@ -60,7 +60,7 @@
 ### 폰트
 
 - 기본 폰트 Times New Roman(times.ttf, bold는 timesbd.ttf), 한글 글리프는 바탕체 폴백 — go-pdf/fpdf의 `SetFallbackFonts` 사용 (혼합 문자열에서 글리프 단위 폴백).
-- 폰트 파일은 사용자 제공(사내 Windows의 times.ttf/timesbd.ttf + batang.ttc). `internal/pdf/fonts/`에 두고 `go:embed`로 바이너리에 포함.
+- 폰트 파일은 사용자 제공 완료 — `fonts/` (TIMES.TTF, TIMESBD.TTF, TIMESI.TTF, TIMESBI.TTF, BATANG.TTC). 구현 시 `internal/pdf/fonts/`로 복사(또는 참조)해 `go:embed`로 바이너리에 포함. 이탤릭 2종은 현재 라벨에 미사용 — 임베드 제외.
 - batang.ttc는 TTC 컬렉션 — fpdf가 TTC를 못 읽으면 첫 face를 TTF로 추출해 사용 (구현 시 확인).
 - 바탕체는 bold face가 없음 — 한글 굵게는 Excel과 동일하게 synthetic bold(외곽선 보강) 또는 regular로 렌더. 구현 시 시각 비교로 결정.
 
