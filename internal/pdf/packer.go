@@ -47,21 +47,10 @@ func layoutPieces(sizes [][2]float64) []placed {
 	return out
 }
 
-// cutGuide draws a dashed gray rectangle 2.5mm outside the piece, clamped to
-// the page, marking where to cut (centered in the 5mm gap).
-func cutGuide(doc *fpdf.Fpdf, x, y, w, h float64) {
-	const off = gapMM / 2.0
-	x1, y1 := max(x-off, 1.0), max(y-off, 1.0)
-	x2, y2 := min(x+w+off, pageW-1.0), min(y+h+off, pageH-1.0)
-	doc.SetDrawColor(153, 153, 153)
-	doc.SetLineWidth(0.15)
-	doc.SetDashPattern([]float64{2, 1.5}, 0)
-	doc.Rect(x1, y1, x2-x1, y2-y1, "D")
-	doc.SetDashPattern([]float64{}, 0)
-	doc.SetDrawColor(0, 0, 0)
-}
-
-// packAndDraw lays out the pieces and renders each with its cut guide.
+// packAndDraw lays out the pieces and renders each. No cut guides: the user's
+// print comparison showed the dashed rect reads as part of the label and
+// confuses size verification — the 5mm gap alone separates pieces, and the
+// label's own medium border is the cutting edge.
 //
 // Single walk: layoutPieces preserves piece order and pages are monotonically
 // non-decreasing, so a page is added exactly when a placement's page advances
@@ -78,7 +67,6 @@ func packAndDraw(doc *fpdf.Fpdf, pieces []piece) error {
 			doc.AddPage()
 			pages++
 		}
-		cutGuide(doc, pl.x, pl.y, pieces[i].w, pieces[i].h)
 		if err := pieces[i].draw(doc, pl.x, pl.y); err != nil {
 			return err
 		}
