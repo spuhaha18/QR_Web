@@ -15,17 +15,17 @@ import (
 func main() {
 	cfg := config.Load()
 
-	logger, err := logging.Init(cfg.LogFile, cfg.LogLevel)
+	logger, err := logging.Init(cfg.LogFile, cfg.LogLevel, cfg.LogMaxSizeMB, cfg.LogMaxBackups)
 	if err != nil {
 		log.Fatalf("failed to init logger: %v", err)
 	}
 	defer func() { _ = logger.Close() }()
 
-	logger.Info("Starting QR Web application on %s (level=%s)", cfg.Addr(), cfg.LogLevel)
+	logger.Info("server started", "addr", cfg.Addr(), "level", cfg.LogLevel)
 
 	srv := httpx.New(cfg, logger)
 	if err := srv.Listen(); err != nil {
-		logger.Error("server exited: %v", err)
+		logger.Error("server exited", "err", err.Error())
 		log.Fatalf("server exited: %v", err)
 	}
 }

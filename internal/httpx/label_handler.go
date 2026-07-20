@@ -80,7 +80,7 @@ func (s *Server) handleCreateLabelPaste(c *fiber.Ctx) error {
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
 
-	s.log.Info("Paste-mode label generated: %s for %s", filename, c.IP())
+	s.log.Info("label generated", "mode", "paste", "file", filename, "ip", c.IP(), "request_id", requestID(c))
 	return sendPDF(c, data, filename)
 }
 
@@ -122,7 +122,7 @@ func (s *Server) handleCreateLabelAuto(c *fiber.Ctx) error {
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
 
-	s.log.Info("Auto-mode label generated: %s for %s", filename, c.IP())
+	s.log.Info("label generated", "mode", "auto", "file", filename, "ip", c.IP(), "request_id", requestID(c))
 	return c.JSON(fiber.Map{
 		"success":      true,
 		"message":      "라벨이 성공적으로 생성되었습니다.",

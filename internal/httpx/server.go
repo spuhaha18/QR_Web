@@ -7,10 +7,13 @@ package httpx
 import (
 	"errors"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 
 	"qrweb/internal/config"
 	"qrweb/internal/label"
@@ -50,7 +53,11 @@ func New(cfg *config.Config, log *logging.Logger) *Server {
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: true,
 	}))
-	// request logging via our file+stdout logger.
+	// Per-request ID: reuses an incoming X-Request-ID, else generates a UUID;
+	// echoed on the response header and attached to every log record.
+	app.Use(requestid.New())
+	// Access log for business routes only — the log viewer's own traffic and
+	// static assets would drown the signal.
 	app.Use(s.requestLogger())
 
 	s.registerRoutes()
@@ -95,13 +102,44 @@ func (s *Server) registerRoutes() {
 	}))
 }
 
-// requestLogger logs each request after it completes (method, path, status).
+// requestLogger writes one "request" record per business request. Viewer
+// endpoints (/api/logs*) and static/SPA paths are excluded so reading logs
+// does not generate logs.
 func (s *Server) requestLogger() fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		start := time.Now()
 		err := c.Next()
-		s.log.Info("%s %s -> %d from %s", c.Method(), c.Path(), c.Response().StatusCode(), c.IP())
+		path := c.Path()
+		if !accessLogged(path) {
+			return err
+		}
+		s.log.Info("request",
+			"method", c.Method(),
+			"path", path,
+			"status", c.Response().StatusCode(),
+			"duration_ms", time.Since(start).Milliseconds(),
+			"ip", c.IP(),
+			"request_id", requestID(c),
+		)
 		return err
 	}
+}
+
+// accessLogged reports whether path belongs to the access log: API routes
+// minus the log viewer, plus the non-/api label route.
+func accessLogged(path string) bool {
+	if path == "/create_label" {
+		return true
+	}
+	return strings.HasPrefix(path, "/api/") && !strings.HasPrefix(path, "/api/logs")
+}
+
+// requestID returns the Fiber requestid middleware's ID for this request.
+func requestID(c *fiber.Ctx) string {
+	if v, ok := c.Locals("requestid").(string); ok {
+		return v
+	}
+	return ""
 }
 
 // errJSON writes {"error": msg} with the given status, matching Flask's
