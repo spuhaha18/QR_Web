@@ -1,33 +1,33 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { ClipboardList, X, RefreshCw, Download, Trash2 } from 'lucide-svelte';
+  import { levelLabel, renderMessage, type LogEntry } from '../lib/logMessages';
 
   export let open = false;
   export let onClose: () => void;
 
   interface LogsResponse {
     success: boolean;
-    logs: string[];
+    logs: LogEntry[];
     total_lines: number;
-    requested_lines: number;
-    level_filter: string;
-    search_filter: string;
     message?: string;
   }
 
-  let logs: string[] = [];
+  let entries: LogEntry[] = [];
   let totalLines = 0;
   let levelFilter = 'all';
   let searchQuery = '';
+  let requestIdFilter = '';
+  let showRaw = false;
   let loading = false;
   let errorMsg = '';
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   const levelOptions = [
     { value: 'all', label: '전체' },
-    { value: 'INFO', label: 'INFO' },
-    { value: 'WARNING', label: 'WARNING' },
-    { value: 'ERROR', label: 'ERROR' },
+    { value: 'DEBUG', label: '디버그' },
+    { value: 'INFO', label: '정보' },
+    { value: 'WARN', label: '경고' },
+    { value: 'ERROR', label: '오류' },
   ];
 
   async function fetchLogs() {
@@ -36,19 +36,16 @@
     try {
       const params = new URLSearchParams({ lines: '200' });
       if (levelFilter !== 'all') params.set('level', levelFilter);
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
-
+      if (requestIdFilter) params.set('request_id', requestIdFilter);
       const res = await fetch(`/api/logs?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: LogsResponse = await res.json();
-      logs = data.logs ?? [];
+      entries = data.logs ?? [];
       totalLines = data.total_lines ?? 0;
-      if (logs.length === 0 && data.message) {
-        errorMsg = data.message;
-      }
+      if (entries.length === 0 && data.message) errorMsg = data.message;
     } catch (e) {
       errorMsg = e instanceof Error ? e.message : '로그를 불러올 수 없습니다.';
-      logs = [];
+      entries = [];
     } finally {
       loading = false;
     }
@@ -58,18 +55,40 @@
     fetchLogs();
   }
 
-  function onSearchInput() {
-    if (debounceTimer !== null) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      fetchLogs();
-    }, 400);
+  // Client-side search: matches the rendered Korean text AND raw msg/fields,
+  // so both "라벨" and "label" (or a filename) find the same line.
+  function matches(e: LogEntry, q: string): boolean {
+    const hay = (renderMessage(e) + ' ' + e.msg + ' ' + JSON.stringify(e.fields)).toLowerCase();
+    return hay.includes(q.toLowerCase());
+  }
+  $: visible = searchQuery.trim()
+    ? entries.filter((e) => matches(e, searchQuery.trim()))
+    : entries;
+
+  function filterByRequestId(id: string) {
+    requestIdFilter = id;
+    fetchLogs();
+  }
+  function clearRequestIdFilter() {
+    requestIdFilter = '';
+    fetchLogs();
   }
 
-  function onSearchKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
-      fetchLogs();
-    }
+  function shortId(e: LogEntry): string {
+    const id = e.fields['request_id'];
+    return typeof id === 'string' ? id.slice(0, 8) : '';
+  }
+  function fullId(e: LogEntry): string {
+    const id = e.fields['request_id'];
+    return typeof id === 'string' ? id : '';
+  }
+
+  function fmtTime(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
   function downloadLogs() {
@@ -96,17 +115,18 @@
     fetchLogs();
   } else {
     document.body.style.overflow = '';
-    logs = [];
+    entries = [];
     errorMsg = '';
     searchQuery = '';
     levelFilter = 'all';
+    requestIdFilter = '';
+    showRaw = false;
   }
 
   onMount(() => document.addEventListener('keydown', onKey));
   onDestroy(() => {
     document.removeEventListener('keydown', onKey);
     document.body.style.overflow = '';
-    if (debounceTimer !== null) clearTimeout(debounceTimer);
   });
 </script>
 
@@ -145,14 +165,20 @@
       <input
         class="logs-search-input"
         type="text"
-        placeholder="검색 (Enter 또는 잠시 대기)"
+        placeholder="검색"
         bind:value={searchQuery}
-        on:input={onSearchInput}
-        on:keydown={onSearchKeydown}
         aria-label="로그 검색"
       />
+      <button type="button" class="logs-action-btn" class:logs-raw-on={showRaw} on:click={() => (showRaw = !showRaw)}>
+        원문
+      </button>
+      {#if requestIdFilter}
+        <button type="button" class="logs-reqid-chip" on:click={clearRequestIdFilter} title="요청 필터 해제">
+          요청 {requestIdFilter.slice(0, 8)} ✕
+        </button>
+      {/if}
       {#if totalLines > 0}
-        <span class="logs-count">{logs.length} / {totalLines}줄</span>
+        <span class="logs-count">{visible.length} / {totalLines}줄</span>
       {/if}
     </div>
 
@@ -161,19 +187,23 @@
         <div class="logs-status-msg">불러오는 중...</div>
       {:else if errorMsg}
         <div class="logs-status-msg logs-empty">{errorMsg}</div>
-      {:else if logs.length === 0}
+      {:else if entries.length === 0}
         <div class="logs-status-msg logs-empty">로그 없음</div>
       {:else}
         <div class="logs-lines" role="log" aria-live="polite">
-          {#each logs as line, i}
-            <div
-              class="logs-line"
-              class:logs-line-error={line.includes('ERROR') || line.includes('error')}
-              class:logs-line-warn={line.includes('WARNING') || line.includes('WARN')}
-              class:logs-line-info={line.includes('INFO')}
-            >
+          {#each visible as e, i}
+            <div class="logs-line" class:logs-line-error={e.level === 'ERROR'} class:logs-line-warn={e.level === 'WARN'}>
               <span class="logs-line-num">{i + 1}</span>
-              <span class="logs-line-text">{line}</span>
+              <span class="logs-time">{fmtTime(e.time)}</span>
+              <span class="logs-badge logs-badge-{e.level.toLowerCase()}">{levelLabel(e.level)}</span>
+              {#if shortId(e)}
+                <button type="button" class="logs-reqid" title={fullId(e)} on:click={() => filterByRequestId(fullId(e))}>
+                  {shortId(e)}
+                </button>
+              {/if}
+              <span class="logs-line-text">
+                {#if showRaw}{JSON.stringify({ time: e.time, level: e.level, msg: e.msg, ...e.fields })}{:else}{renderMessage(e)}{/if}
+              </span>
             </div>
           {/each}
         </div>
@@ -351,7 +381,51 @@
     color: #fbbf24;
   }
 
-  .logs-line-info .logs-line-text {
-    color: var(--text-main);
+  .logs-time {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    padding-right: 10px;
+    font-size: 0.75rem;
+  }
+
+  .logs-badge {
+    flex-shrink: 0;
+    padding: 1px 7px;
+    margin-right: 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .logs-badge-debug { background: var(--secondary-bg); color: var(--text-muted); }
+  .logs-badge-info  { background: rgba(59, 130, 246, 0.12); color: #2563eb; }
+  .logs-badge-warn  { background: rgba(217, 119, 6, 0.12);  color: #d97706; }
+  .logs-badge-error { background: var(--error-bg);           color: var(--error-text); }
+
+  .logs-reqid {
+    flex-shrink: 0;
+    margin-right: 8px;
+    padding: 0 4px;
+    border: none;
+    background: none;
+    color: var(--primary-color);
+    font-family: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-decoration: underline dotted;
+  }
+
+  .logs-reqid-chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--primary-color);
+    background: var(--surface-color);
+    color: var(--primary-color);
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+
+  .logs-raw-on {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
   }
 </style>
