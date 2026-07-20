@@ -128,14 +128,15 @@ git add internal/pdf/ && git commit -m "feat(pdf): embed Times/Batang fonts (Bat
 
 - [ ] **Step 1: 의존성 추가 + API 확인**
 
+**결정 확정(컨트롤러 검증 완료):** fpdf v0.9.0과 signintech/gopdf v0.37.0 모두 글리프 폴백 미지원. 폴백은 우리 코드의 **런 분할**(Task 4 `familyFor`/`splitRuns`)로 구현한다. newDoc은 폰트 등록만 한다.
+
 ```bash
-~/.local/go/bin/go get github.com/go-pdf/fpdf@latest
-~/.local/go/bin/go doc github.com/go-pdf/fpdf.Fpdf.SetFallbackFonts
+~/.local/go/bin/go get github.com/go-pdf/fpdf@v0.9.0
 ~/.local/go/bin/go doc github.com/go-pdf/fpdf.Fpdf.AddUTF8FontFromBytes
-~/.local/go/bin/go doc github.com/go-pdf/fpdf.Fpdf.SplitText
+~/.local/go/bin/go doc github.com/go-pdf/fpdf.Fpdf.GetStringWidth
 ```
 
-Expected: 세 메서드 시그니처 출력. **SetFallbackFonts가 없으면 STOP — 계획 수정 필요(글리프 단위 수동 분할로 전환), 진행 전 보고.**
+Expected: 두 메서드 시그니처 출력.
 
 - [ ] **Step 2: 실패 테스트** — `internal/pdf/doc_test.go`
 
@@ -178,23 +179,22 @@ const fontFamily = "times"
 
 const batangFamily = "batang"
 
-// newDoc returns an A4-portrait mm-unit document with fonts registered and
-// fallback wired. Auto page break off: the packer owns page boundaries.
+// newDoc returns an A4-portrait mm-unit document with both families
+// registered. fpdf has no glyph fallback; Korean-vs-Latin routing happens in
+// textfit's run splitting (familyFor), not here. Auto page break off: the
+// packer owns page boundaries.
 func newDoc() *fpdf.Fpdf {
 	doc := fpdf.New("P", "mm", "A4", "")
 	doc.SetAutoPageBreak(false, 0)
 	doc.AddUTF8FontFromBytes(fontFamily, "", fontTimes)
 	doc.AddUTF8FontFromBytes(fontFamily, "B", fontTimesBold)
-	// Batang has no bold face; register the same bytes for "B" so bold text
-	// falls back to regular-weight Batang glyphs (Excel renders the same way).
+	// Batang has no bold face; register the same bytes for "B" so bold-styled
+	// Korean renders regular-weight Batang glyphs (grill Q4 decision).
 	doc.AddUTF8FontFromBytes(batangFamily, "", fontBatang)
 	doc.AddUTF8FontFromBytes(batangFamily, "B", fontBatang)
-	doc.SetFallbackFonts([]string{batangFamily}, false)
 	return doc
 }
 ```
-
-(`SetFallbackFonts` 두 번째 인자는 Step 1의 go doc 출력에 맞춰 조정 — 인자 하나면 제거.)
 
 - [ ] **Step 5: 통과 확인 + 커밋**
 
@@ -402,12 +402,17 @@ git add internal/pdf/ && git commit -m "feat(pdf): geometry — Excel-unit to mm
 - Test: `internal/pdf/textfit_test.go`
 
 **Interfaces:**
-- Consumes: `newDoc()`, `fontFamily`
+- Consumes: `newDoc()`, `fontFamily`, `batangFamily`
 - Produces:
-  - `fitText(doc *fpdf.Fpdf, text string, baseSizePt, boxW, boxH float64) (sizePt float64, lines []string)` — SplitText로 wrap, 넘치면 0.5pt씩 축소(하한 2pt). 호출 후 doc의 현재 폰트는 (fontFamily, "B", sizePt).
+  - `familyFor(r rune) string` — U+2E80 미만은 times, 이상(한글·CJK·전각)은 batang.
+  - `splitRuns(s string) []run` — 같은 family 연속 런으로 분할, 공백은 현재 런에 붙음.
+  - `textWidth(doc, sizePt, s) float64` — 런별 폰트 설정 후 GetStringWidth 합.
+  - `wrapText(doc, sizePt, s, maxW) []string` — 자체 greedy 줄바꿈(마지막 공백 우선, 없으면 rune 단위 — CJK는 Excel처럼 아무 데서나 꺾임).
+  - `fitText(doc *fpdf.Fpdf, text string, baseSizePt, boxW, boxH float64) (sizePt float64, lines []string)` — wrap 후 넘치면 0.5pt씩 축소(하한 2pt).
   - `lineHeightMM(sizePt float64) float64` = ptToMM(sizePt)*1.2
-  - `drawTextBox(doc *fpdf.Fpdf, x, y, w, h float64, text string, baseSizePt float64)` — fitText 후 수직·수평 중앙 정렬로 각 줄 CellFormat.
+  - `drawTextBox(doc *fpdf.Fpdf, x, y, w, h float64, text string, baseSizePt float64)` — fitText 후 수직·수평 중앙 정렬, 줄마다 런 단위로 폰트 바꿔가며 이어 그림.
   - `textPadMM` 상수 = 0.6 (좌우/상하 합산 여유)
+- **주의:** fpdf에 글리프 폴백이 없어(v0.9.0 확인) 이 파일이 한글/라틴 폰트 라우팅의 단일 지점이다. SplitText는 사용하지 않는다(단일 폰트 기준이라 혼합 측정이 틀림).
 
 - [ ] **Step 1: 실패 테스트** — `internal/pdf/textfit_test.go`
 
@@ -419,6 +424,30 @@ import (
 	"testing"
 )
 
+func TestFamilyForRoutesScripts(t *testing.T) {
+	for r, want := range map[rune]string{
+		'A': fontFamily, '9': fontFamily, '-': fontFamily, '(': fontFamily,
+		'한': batangFamily, '글': batangFamily, '漢': batangFamily, '１': batangFamily,
+	} {
+		if got := familyFor(r); got != want {
+			t.Errorf("familyFor(%q) = %s, want %s", r, got, want)
+		}
+	}
+}
+
+func TestSplitRunsMixed(t *testing.T) {
+	runs := splitRuns("바탕체 Times 123")
+	if len(runs) != 2 {
+		t.Fatalf("runs = %+v, want 2 runs", runs)
+	}
+	if runs[0].family != batangFamily || runs[0].text != "바탕체 " {
+		t.Errorf("run0 = %+v", runs[0])
+	}
+	if runs[1].family != fontFamily || runs[1].text != "Times 123" {
+		t.Errorf("run1 = %+v", runs[1])
+	}
+}
+
 func TestFitTextShortKeepsBaseSize(t *testing.T) {
 	doc := newDoc()
 	doc.AddPage()
@@ -426,8 +455,8 @@ func TestFitTextShortKeepsBaseSize(t *testing.T) {
 	if size != 16 {
 		t.Errorf("size = %v, want 16", size)
 	}
-	if len(lines) == 0 {
-		t.Error("no lines")
+	if len(lines) != 1 {
+		t.Errorf("lines = %v, want 1", lines)
 	}
 }
 
@@ -443,11 +472,17 @@ func TestFitTextLongShrinksAndFits(t *testing.T) {
 	if got := float64(len(lines)) * lineHeightMM(size); got > boxH-textPadMM {
 		t.Errorf("wrapped block %vmm exceeds box %vmm", got, boxH)
 	}
-	// no truncation: total rune count preserved (SplitText may trim spaces at breaks)
+	// no truncation: content preserved modulo spaces trimmed at line breaks
 	joined := strings.ReplaceAll(strings.Join(lines, ""), " ", "")
 	orig := strings.ReplaceAll(long, " ", "")
 	if joined != orig {
 		t.Error("text content lost during wrap")
+	}
+	// every line fits the width
+	for _, line := range lines {
+		if w := textWidth(doc, size, line); w > boxW-textPadMM+0.001 {
+			t.Errorf("line %q width %v exceeds %v", line, w, boxW-textPadMM)
+		}
 	}
 }
 ```
@@ -459,27 +494,131 @@ func TestFitTextLongShrinksAndFits(t *testing.T) {
 ```go
 package pdf
 
-import "github.com/go-pdf/fpdf"
+import (
+	"strings"
+	"unicode"
+
+	"github.com/go-pdf/fpdf"
+)
 
 // textPadMM keeps a hair of breathing room inside a cell box, like Excel's
 // cell padding; subtracted from both the wrap width and the height budget.
 const textPadMM = 0.6
 
-// minFontPt is the shrink floor. Below this the text is unreadable anyway and
-// the loop must terminate; in practice real inputs never get here.
+// minFontPt is the shrink floor (grill Q2). Below this the text is unreadable
+// anyway and the loop must terminate; real inputs never get here.
 const minFontPt = 2.0
 
 func lineHeightMM(sizePt float64) float64 { return ptToMM(sizePt) * 1.2 }
 
-// fitText wraps text into the box at baseSizePt and shrinks in 0.5pt steps
-// until the wrapped block fits. Never truncates. Leaves the doc font set to
-// the returned size.
+// familyFor routes a rune to its font: Times for Latin/digits/common
+// punctuation, Batang for everything from the CJK blocks up (U+2E80+).
+// fpdf has no glyph fallback, so this function IS the fallback policy.
+func familyFor(r rune) string {
+	if r < 0x2E80 {
+		return fontFamily
+	}
+	return batangFamily
+}
+
+// run is a maximal same-family span of a single line.
+type run struct {
+	family string
+	text   string
+}
+
+// splitRuns splits a line into runs. Spaces are neutral: they stay in the
+// current run so runs only break on a real script change.
+func splitRuns(s string) []run {
+	var out []run
+	var cur []rune
+	curFam := ""
+	for _, r := range s {
+		fam := familyFor(r)
+		if unicode.IsSpace(r) && curFam != "" {
+			fam = curFam
+		}
+		if fam != curFam && len(cur) > 0 {
+			out = append(out, run{curFam, string(cur)})
+			cur = cur[:0]
+		}
+		curFam = fam
+		cur = append(cur, r)
+	}
+	if len(cur) > 0 {
+		out = append(out, run{curFam, string(cur)})
+	}
+	return out
+}
+
+// textWidth measures a mixed-script line: per-run font switch + width sum.
+func textWidth(doc *fpdf.Fpdf, sizePt float64, s string) float64 {
+	w := 0.0
+	for _, ru := range splitRuns(s) {
+		doc.SetFont(ru.family, "B", sizePt)
+		w += doc.GetStringWidth(ru.text)
+	}
+	return w
+}
+
+// runeWidth measures one rune in its own family at sizePt.
+func runeWidth(doc *fpdf.Fpdf, sizePt float64, r rune) float64 {
+	doc.SetFont(familyFor(r), "B", sizePt)
+	return doc.GetStringWidth(string(r))
+}
+
+// wrapText greedily breaks s into lines no wider than maxW. Breaks at the
+// last space when one exists in the current line, otherwise at the current
+// rune (CJK breaks anywhere, like Excel's wrap). Trailing spaces at a break
+// are trimmed; no character is ever dropped otherwise.
+func wrapText(doc *fpdf.Fpdf, sizePt float64, s string, maxW float64) []string {
+	var lines []string
+	var line []rune
+	lineW := 0.0
+	lastSpace := -1
+	flush := func(cut int) {
+		lines = append(lines, strings.TrimRight(string(line[:cut]), " "))
+		line = append([]rune{}, line[cut:]...)
+		lineW = 0
+		lastSpace = -1
+		for i, lr := range line {
+			lineW += runeWidth(doc, sizePt, lr)
+			if lr == ' ' {
+				lastSpace = i
+			}
+		}
+	}
+	for _, r := range s {
+		rw := runeWidth(doc, sizePt, r)
+		if lineW+rw > maxW && len(line) > 0 {
+			cut := len(line)
+			if lastSpace >= 0 {
+				cut = lastSpace + 1
+			}
+			flush(cut)
+		}
+		if r == ' ' {
+			lastSpace = len(line)
+		}
+		line = append(line, r)
+		lineW += rw
+	}
+	if len(line) > 0 {
+		lines = append(lines, string(line))
+	}
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+	return lines
+}
+
+// fitText wraps at baseSizePt and shrinks in 0.5pt steps until the block
+// fits the box (grill Q2: floor 2pt, never truncate).
 func fitText(doc *fpdf.Fpdf, text string, baseSizePt, boxW, boxH float64) (float64, []string) {
 	availW, availH := boxW-textPadMM, boxH-textPadMM
 	size := baseSizePt
 	for {
-		doc.SetFont(fontFamily, "B", size)
-		lines := doc.SplitText(text, availW)
+		lines := wrapText(doc, size, text, availW)
 		if float64(len(lines))*lineHeightMM(size) <= availH || size <= minFontPt {
 			return size, lines
 		}
@@ -487,8 +626,9 @@ func fitText(doc *fpdf.Fpdf, text string, baseSizePt, boxW, boxH float64) (float
 	}
 }
 
-// drawTextBox renders text centered (both axes) inside the box, shrinking to
-// fit. Empty text draws nothing.
+// drawTextBox renders text centered (both axes) in the box, shrinking to
+// fit; each line is drawn run-by-run with per-script font switches. Empty
+// text draws nothing.
 func drawTextBox(doc *fpdf.Fpdf, x, y, w, h float64, text string, baseSizePt float64) {
 	if text == "" {
 		return
@@ -497,8 +637,15 @@ func drawTextBox(doc *fpdf.Fpdf, x, y, w, h float64, text string, baseSizePt flo
 	lh := lineHeightMM(size)
 	top := y + (h-float64(len(lines))*lh)/2.0
 	for i, line := range lines {
-		doc.SetXY(x, top+float64(i)*lh)
-		doc.CellFormat(w, lh, line, "", 0, "C", false, 0, "")
+		cx := x + (w-textWidth(doc, size, line))/2.0
+		cy := top + float64(i)*lh
+		for _, ru := range splitRuns(line) {
+			doc.SetFont(ru.family, "B", size)
+			rw := doc.GetStringWidth(ru.text)
+			doc.SetXY(cx, cy)
+			doc.CellFormat(rw, lh, ru.text, "", 0, "L", false, 0, "")
+			cx += rw
+		}
 	}
 }
 ```
@@ -587,6 +734,15 @@ func TestRenderMainEquipmentSmoke(t *testing.T) {
 	}
 }
 
+func TestQRSideShrinksForNarrowBox(t *testing.T) {
+	if got := qrSide(15.875, 23.8125); got != 15.875 {
+		t.Errorf("qrSide narrow = %v, want 15.875", got)
+	}
+	if got := qrSide(22.225, 23.8125); got != qrSizeMM {
+		t.Errorf("qrSide normal = %v, want %v", got, qrSizeMM)
+	}
+}
+
 func TestRenderAuxProjectSmoke(t *testing.T) {
 	doc := newDoc()
 	doc.AddPage()
@@ -645,6 +801,19 @@ func rect(doc *fpdf.Fpdf, x1, y1, x2, y2, lineW float64) {
 	doc.Rect(x1, y1, x2-x1, y2-y1, "D")
 }
 
+// qrSide returns the QR square side: 19.84mm, shrunk to fit a smaller box
+// (the 1cm binder's QR box is only ~15.9mm wide).
+func qrSide(boxW, boxH float64) float64 {
+	side := qrSizeMM
+	if boxW < side {
+		side = boxW
+	}
+	if boxH < side {
+		side = boxH
+	}
+	return side
+}
+
 // cellText returns the string form of a CellValues entry (year is an int).
 func cellText(v any) string {
 	switch t := v.(type) {
@@ -698,19 +867,15 @@ func renderMain(doc *fpdf.Fpdf, x, y float64, dt label.DocType, b label.BinderSi
 		drawTextBox(doc, xl, y+g.rowY[r-1], xr-xl, g.rowY[r]-g.rowY[r-1], text, sizeFor(fonts[addr]))
 	}
 
-	// QR centered in the box; clamp left/top to the piece edge like Excel
-	// clamps to the sheet edge when the QR is wider than the box.
-	qx := xl + ((xr - xl) - qrSizeMM) / 2.0
-	if qx < x {
-		qx = x
-	}
-	qy := boxTop + ((boxBot - boxTop) - qrSizeMM) / 2.0
-	if qy < y {
-		qy = y
-	}
+	// QR centered in the box, shrunk to fit when the box is smaller than
+	// 19.84mm (1cm binder) — grill Q1 decision: shrink, not Excel-style
+	// overflow.
+	side := qrSide(xr-xl, boxBot-boxTop)
+	qx := xl + ((xr - xl) - side) / 2.0
+	qy := boxTop + ((boxBot - boxTop) - side) / 2.0
 	opts := fpdf.ImageOptions{ImageType: "PNG"}
 	doc.RegisterImageOptionsReader(qrName, opts, bytes.NewReader(qrPNG))
-	doc.ImageOptions(qrName, qx, qy, qrSizeMM, qrSizeMM, false, opts, 0, "")
+	doc.ImageOptions(qrName, qx, qy, side, side, false, opts, 0, "")
 	return doc.Error()
 }
 

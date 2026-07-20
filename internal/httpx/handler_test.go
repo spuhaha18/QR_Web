@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -132,7 +133,7 @@ func decodeError(t *testing.T, body []byte) string {
 	return ""
 }
 
-func TestCreateLabel_CorrectNFiles_ReturnsXLSX(t *testing.T) {
+func TestCreateLabel_CorrectNFiles_ReturnsPDF(t *testing.T) {
 	s := newTestServer(t)
 	png := makePNG(t)
 	fields := baseEqFields()
@@ -147,11 +148,15 @@ func TestCreateLabel_CorrectNFiles_ReturnsXLSX(t *testing.T) {
 		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 	}
 	ct := rec.Header().Get("Content-Type")
-	if !strings.Contains(ct, "spreadsheetml.sheet") {
-		t.Errorf("Content-Type = %q, want xlsx", ct)
+	if ct != "application/pdf" {
+		t.Errorf("Content-Type = %q, want application/pdf", ct)
 	}
-	if !bytes.HasPrefix(rec.Body.Bytes(), []byte("PK")) {
-		t.Errorf("body is not a ZIP/xlsx (first bytes: %x)", rec.Body.Bytes()[:4])
+	if !bytes.HasPrefix(rec.Body.Bytes(), []byte("%PDF")) {
+		t.Errorf("body is not a PDF (first bytes: %x)", rec.Body.Bytes()[:4])
+	}
+	cd := rec.Header().Get("Content-Disposition")
+	if !strings.Contains(cd, ".pdf") {
+		t.Errorf("Content-Disposition = %q, want .pdf suffix", cd)
 	}
 }
 
@@ -181,7 +186,7 @@ func TestCreateLabel_KoreanDocNumber_RFC5987Filename(t *testing.T) {
 	png := makePNG(t)
 	fields := baseEqFields()
 	fields["eq_doc_count"] = "1"
-	fields["eq_doc_number"] = "한글" // filename base becomes "한글_<ts>.xlsx"
+	fields["eq_doc_number"] = "한글" // filename base becomes "한글_<ts>.pdf"
 	fields["qr_order"] = "[0]"
 	files := []qrFile{{"qr_images", "qr0.png", png}}
 	rec := postMultipart(t, s, "/create_label", fields, files)
@@ -322,8 +327,23 @@ func TestAPICreateLabel_AutoGenerates_200(t *testing.T) {
 	if m["success"] != true {
 		t.Errorf("success = %v, want true", m["success"])
 	}
-	if _, ok := m["file_base64"].(string); !ok {
-		t.Errorf("missing file_base64")
+	if m["content_type"] != "application/pdf" {
+		t.Errorf("content_type = %v, want application/pdf", m["content_type"])
+	}
+	filename, _ := m["filename"].(string)
+	if !strings.HasSuffix(filename, ".pdf") {
+		t.Errorf("filename = %q, want .pdf suffix", filename)
+	}
+	fb64, ok := m["file_base64"].(string)
+	if !ok {
+		t.Fatalf("missing file_base64")
+	}
+	raw, err := base64.StdEncoding.DecodeString(fb64)
+	if err != nil {
+		t.Fatalf("file_base64 decode: %v", err)
+	}
+	if !bytes.HasPrefix(raw, []byte("%PDF")) {
+		t.Errorf("file_base64 decoded is not a PDF (first bytes: %x)", raw[:4])
 	}
 }
 

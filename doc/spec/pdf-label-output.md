@@ -21,9 +21,15 @@
 | 용지 | A4 세로 (210×297mm) |
 | 크기 기준 | Excel 100% 배율 환산 mm (geometry.go 공식 재사용) |
 | 과제 보조 표 | 독립 조각으로 같은 페이지에 패킹 |
-| 재단 가이드 | 5mm 간격 + 회색 점선 |
+| 재단 가이드 | ~~5mm 간격 + 회색 점선~~ → **점선 제거, 5mm 간격만** (실물 비교 시 점선이 라벨 크기 확인을 방해 — 라벨 medium 테두리가 재단선 역할) |
 | 렌더 방식 | Go PDF 라이브러리 (go-pdf/fpdf 또는 signintech/gopdf) 벡터 직접 렌더 |
 | 폰트 | 라틴/숫자 = Times New Roman, 한글 = 바탕체. 사용자가 원본 파일 제공(times.ttf/timesbd.ttf + batang.ttc). 폰트 크기(12/16/20/13pt)는 기존 유지 |
+| QR 오버플로 (grill Q1) | QR 박스가 19.84mm보다 작으면(1cm 장비 라벨) QR을 박스에 맞춰 정사각 축소 — Excel식 오버플로 대신 |
+| 축소 하한 (grill Q2) | 폰트 축소 하한 2pt, 도달 시 그대로 렌더(에러/경고 없음, 잘림 없음) |
+| 크기 보정 (grill Q3) | **적용됨(2026-07-20 실측)**: 사무실 Excel 실인쇄가 명목값과 다름(7cm 라벨 47×150mm vs 명목 42.86×153.99 — 가로: Excel 폰트 메트릭(MDW)이 커서 열 ~10% 넓게, 세로: 프린터 드라이버 ~97.4% 축소). calScaleX=47/42.8625, calScaleY=150/153.9875를 geometry 전체에 적용. 재실측 후 앵커값(47,150)만 조정하면 됨 |
+| 한글 굵게 (grill Q4) | **synthetic bold 적용(2026-07-20 변경)**: 바탕 런은 fill+stroke(텍스트 렌더 모드 2, 스트로크 ≈0.025em)로 굵게 — Windows/Excel의 가짜 굵게와 동일 방식 |
+| doc_count 상한 (grill Q5) | 범위 밖 — 기존 무상한 동작 유지 |
+| 인쇄 안내 (grill Q6) | PDF에 안내 문구 없음. "실제 크기(100%) 인쇄"는 사내 매뉴얼로 |
 
 ## 크기 산출 (단일 소스)
 
@@ -46,7 +52,7 @@
 - A4 세로, 페이지 여백 10mm, 조각 간 간격 5mm.
 - **행 우선(shelf) 배치**: 조각을 순서대로 현재 행에 좌→우로 놓고, 폭이 넘치면 다음 행, 높이가 넘치면 다음 페이지.
 - 요청당 문서 N개 → 메인 라벨 N개(i/N 표기 각각) + 과제면 보조 표 N개 조각. 메인 먼저, 보조 표는 이어서 패킹 (남는 하단 공간 활용).
-- 각 조각 외곽에 회색(#999 계열) 점선 재단선을 조각 경계에서 그린다.
+- 재단 점선 없음(실물 비교 후 제거). 조각 간 5mm 간격만 유지 — 라벨 자체의 medium 테두리를 따라 재단.
 
 ## 라벨 렌더러
 
@@ -55,15 +61,16 @@
   - 병합 셀(B2:M6 등) 텍스트: 병합 영역 중앙 정렬 + 줄바꿈(기존 global alignment center/center/wrap와 동일).
   - **자동 폰트 축소(모든 값 셀)**: 셀 박스 안에서 단어 줄바꿈 후에도 텍스트 블록이 박스를 넘치면(높이 초과, 또는 한 단어가 박스 폭 초과) 폰트 크기를 줄여 전부 들어갈 때까지 축소. 기준 크기는 셀별 기존 크기(12/16/20/13pt), 축소는 0.5pt 단위 이진/선형 탐색. 문서 제목(B4)뿐 아니라 라벨의 모든 입력 값 셀에 동일 적용. 잘림(truncation)은 절대 없음.
   - 셀 값/폰트 의도는 기존 `label.Label.CellValues()` / `CellFonts()` 도메인 계층을 그대로 소비 — 도메인 코드는 변경 없음.
-- QR: 기존 `internal/qr` PNG 생성 재사용. 75px ≈ 19.84mm 정사각형을 QR 박스(장비 B8:M17, 과제 B7:M17) 중앙에 배치. `DocType.Layout()`의 QRBoxTopRow/BottomRow 재사용.
+- QR: 기존 `internal/qr` PNG 생성 재사용. 75px ≈ 19.84mm 정사각형을 QR 박스(장비 B8:M17, 과제 B7:M17) 중앙에 배치. `DocType.Layout()`의 QRBoxTopRow/BottomRow 재사용. 박스가 19.84mm보다 작으면 QR 한 변 = min(19.84, 박스폭, 박스높이)로 정사각 축소(1cm 장비 라벨 해당).
 - i/N: 시트 복제 대신 라벨 조각을 N개 렌더하며 `Layout().CountCells`(B5, 과제는 S23) 값만 교체.
 
 ### 폰트
 
-- 기본 폰트 Times New Roman(times.ttf, bold는 timesbd.ttf), 한글 글리프는 바탕체 폴백 — go-pdf/fpdf의 `SetFallbackFonts` 사용 (혼합 문자열에서 글리프 단위 폴백).
+- 기본 폰트 Times New Roman(times.ttf, bold는 timesbd.ttf), 한글 글리프는 바탕체 — fpdf v0.9.0/gopdf v0.37.0 모두 글리프 폴백 미지원 확인(구현 중 검증). 폴백은 자체 런 분할로 구현: rune U+2E80 미만 → Times, 이상(한글/CJK/전각) → 바탕. 측정·줄바꿈·렌더 모두 런 단위 폰트 전환.
 - 폰트 파일은 사용자 제공 완료 — `fonts/` (TIMES.TTF, TIMESBD.TTF, TIMESI.TTF, TIMESBI.TTF, BATANG.TTC). 구현 시 `internal/pdf/fonts/`로 복사(또는 참조)해 `go:embed`로 바이너리에 포함. 이탤릭 2종은 현재 라벨에 미사용 — 임베드 제외.
 - batang.ttc는 TTC 컬렉션 — fpdf가 TTC를 못 읽으면 첫 face를 TTF로 추출해 사용 (구현 시 확인).
-- 바탕체는 bold face가 없음 — 한글 굵게는 Excel과 동일하게 synthetic bold(외곽선 보강) 또는 regular로 렌더. 구현 시 시각 비교로 결정.
+- 바탕체는 bold face가 없음 — 한글 런은 synthetic bold(fill+stroke, 스트로크 폭 0.025em)로 렌더. 실물 확인 후 확정(2026-07-20).
+- 라이선스: MS 배포 폰트(재배포 제한)를 사내 도구 바이너리에 임베드하는 것은 사용자 결정 사항(폰트 파일 사용자 제공).
 
 ## 구조 변경
 
