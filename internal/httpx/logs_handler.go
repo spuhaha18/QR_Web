@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,8 +10,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-
-	"qrweb/internal/logging"
 )
 
 // handleGetLogs ports GET /api/logs — returns the most recent N log lines,
@@ -60,10 +59,10 @@ func (s *Server) handleGetLogs(c *fiber.Ctx) error {
 			continue
 		}
 		if level != "ALL" {
-			// Parse the actual level field via its format owner instead of a
-			// substring match (a message containing "INFO" is not an INFO line).
-			lvl, ok := logging.LevelOf(line)
-			if !ok || lvl.String() != level {
+			// ponytail: Task 3 rewrites this handler entirely — a minimal inline
+			// JSON "level" field read is enough to keep the package compiling.
+			lvl, ok := jsonLevel(line)
+			if !ok || lvl != level {
 				continue
 			}
 		}
@@ -99,18 +98,18 @@ func (s *Server) handleClearLogs(c *fiber.Ctx) error {
 	if src, err := os.ReadFile(path); err == nil {
 		if err := os.WriteFile(backupPath, src, 0o644); err == nil {
 			backupFile = backupPath
-			s.log.Info("Log file backed up to: %s", backupPath)
+			s.log.Info("log backup", "path", backupPath)
 		} else {
-			s.log.Warn("Failed to backup log file: %v", err)
+			s.log.Warn("log backup failed", "err", err.Error())
 		}
 	} else {
-		s.log.Warn("Failed to backup log file: %v", err)
+		s.log.Warn("log backup failed", "err", err.Error())
 	}
 
 	if err := os.Truncate(path, 0); err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, "서버 오류가 발생했습니다.")
 	}
-	s.log.Info("Log file cleared by user request")
+	s.log.Info("logs cleared")
 
 	return c.JSON(fiber.Map{
 		"success":     true,
@@ -131,6 +130,17 @@ func (s *Server) handleDownloadLogs(c *fiber.Ctx) error {
 	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, name))
 	c.Set(fiber.HeaderContentType, "text/plain; charset=utf-8")
 	return c.Send(data)
+}
+
+// jsonLevel extracts the "level" field from a JSON log line.
+func jsonLevel(line string) (string, bool) {
+	var m struct {
+		Level string `json:"level"`
+	}
+	if err := json.Unmarshal([]byte(line), &m); err != nil {
+		return "", false
+	}
+	return m.Level, m.Level != ""
 }
 
 // readAllLines reads all lines from path (without trailing newlines).
