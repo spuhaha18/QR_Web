@@ -1,0 +1,16 @@
+# Deploy: docker compose up -d --build
+# Logs (JSON lines + rotated backups) persist in the qrweb-logs volume;
+# the in-app log viewer reads the same file. No healthcheck here: the
+# scratch image has no shell/curl — probe GET /api/health externally.
+services:
+  qrweb:
+    build: .
+    image: qrweb:3.1.0
+    ports:
+      - "8080:5000"
+    volumes:
+      - qrweb-logs:/data
+    restart: unless-stopped
+
+volumes:
+  qrweb-logs:

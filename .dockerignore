@@ -1,0 +1,14 @@
+.git
+.superpowers
+bin/
+logs/
+web/frontend/node_modules/
+web/dist/
+_workspace/
+fonts/
+doc/
+docs/
+tests/
+scripts/
+*.pdf
+*.pptx
