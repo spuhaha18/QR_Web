@@ -15,6 +15,12 @@ const batangFamily = "batang"
 func newDoc() *fpdf.Fpdf {
 	doc := fpdf.New("P", "mm", "A4", "")
 	doc.SetAutoPageBreak(false, 0)
+	// fpdf's default 1mm cell margin shifts left-aligned CellFormat output
+	// right of the given x, so rendered lines land ~1mm right of where
+	// textfit measured them — visibly crossing the border on narrow (1cm)
+	// labels. drawTextBox does its own centering and padding (textPadMM);
+	// the cell margin must be zero so drawn x == measured x.
+	doc.SetCellMargin(0)
 	doc.AddUTF8FontFromBytes(fontFamily, "", fontTimes)
 	doc.AddUTF8FontFromBytes(fontFamily, "B", fontTimesBold)
 	// Batang has no bold face; register the same bytes for "B" so bold-styled

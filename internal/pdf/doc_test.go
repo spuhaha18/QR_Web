@@ -5,6 +5,15 @@ import (
 	"testing"
 )
 
+// newDoc must zero fpdf's default 1mm cell margin: drawTextBox positions runs
+// at measured x, and any cell margin shifts the rendered text right of the
+// measurement — crossing the border on narrow (1cm binder) labels.
+func TestNewDocZeroCellMargin(t *testing.T) {
+	if m := newDoc().GetCellMargin(); m != 0 {
+		t.Errorf("cell margin = %v, want 0", m)
+	}
+}
+
 func TestNewDocRendersKoreanAndLatin(t *testing.T) {
 	doc := newDoc()
 	doc.AddPage()
