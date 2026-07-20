@@ -4,8 +4,9 @@ package pdf
 
 import _ "embed"
 
-// User-supplied MS fonts (see doc/spec/pdf-label-output.md — licensing note):
-// Times New Roman regular/bold, plus Batang face 0 extracted from BATANG.TTC.
+// User-supplied Microsoft fonts (Times New Roman, Batang face 0 from
+// BATANG.TTC); redistribution inside this internal tool's binary was a
+// recorded product decision — see doc/spec/pdf-label-output.md 폰트 section.
 var (
 	//go:embed fonts/times.ttf
 	fontTimes []byte

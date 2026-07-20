@@ -77,7 +77,7 @@ func renderMain(doc *fpdf.Fpdf, x, y float64, dt label.DocType, b label.BinderSi
 	}
 
 	// QR box.
-	boxTop, boxBot := y+g.rowY[layout.QRBoxTopRow-1], y+g.rowY[17]
+	boxTop, boxBot := y+g.rowY[layout.QRBoxTopRow-1], y+g.rowY[layout.QRBoxBottomRow]
 	rect(doc, xl, boxTop, xr, boxBot, thinMM)
 
 	// Values. B5 carries the per-piece i/N marker.
