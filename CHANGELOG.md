@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+- 로그 개선: slog JSON lines + lumberjack 로테이션(10MB×5), request ID 추적, 액세스 로그(비즈니스 라우트만), 뷰어 한글 렌더/레벨 뱃지/요청 필터. `/api/logs`의 `search` 파라미터 제거(클라이언트 검색), clear의 `backup_file` 응답 제거.
+
 ## [2.1.1.0] - 2026-05-19
 
 ### Changed
