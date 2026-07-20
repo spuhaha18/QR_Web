@@ -182,7 +182,19 @@ func drawTextBox(doc *fpdf.Fpdf, x, y, w, h float64, text string, baseSizePt flo
 			doc.SetFont(ru.family, "B", size)
 			rw := doc.GetStringWidth(ru.text)
 			doc.SetXY(cx, cy)
+			if ru.family == batangFamily {
+				// Batang ships no bold face; emulate bold like Windows/Excel
+				// do — fill+stroke the glyph outlines. Stroke scales with the
+				// font size (~0.025em); half of it bleeds outside the measured
+				// advance, well inside textPadMM.
+				doc.SetTextRenderingMode(2)
+				doc.SetDrawColor(0, 0, 0)
+				doc.SetLineWidth(ptToMM(size) * 0.025)
+			}
 			doc.CellFormat(rw, lh, ru.text, "", 0, "L", false, 0, "")
+			if ru.family == batangFamily {
+				doc.SetTextRenderingMode(0)
+			}
 			cx += rw
 		}
 	}

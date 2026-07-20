@@ -27,7 +27,7 @@
 | QR 오버플로 (grill Q1) | QR 박스가 19.84mm보다 작으면(1cm 장비 라벨) QR을 박스에 맞춰 정사각 축소 — Excel식 오버플로 대신 |
 | 축소 하한 (grill Q2) | 폰트 축소 하한 2pt, 도달 시 그대로 렌더(에러/경고 없음, 잘림 없음) |
 | 크기 보정 (grill Q3) | **적용됨(2026-07-20 실측)**: 사무실 Excel 실인쇄가 명목값과 다름(7cm 라벨 47×150mm vs 명목 42.86×153.99 — 가로: Excel 폰트 메트릭(MDW)이 커서 열 ~10% 넓게, 세로: 프린터 드라이버 ~97.4% 축소). calScaleX=47/42.8625, calScaleY=150/153.9875를 geometry 전체에 적용. 재실측 후 앵커값(47,150)만 조정하면 됨 |
-| 한글 굵게 (grill Q4) | 바탕 regular 그대로(synthetic bold 없음). T9 시각 확인 후 필요 시 재검토 |
+| 한글 굵게 (grill Q4) | **synthetic bold 적용(2026-07-20 변경)**: 바탕 런은 fill+stroke(텍스트 렌더 모드 2, 스트로크 ≈0.025em)로 굵게 — Windows/Excel의 가짜 굵게와 동일 방식 |
 | doc_count 상한 (grill Q5) | 범위 밖 — 기존 무상한 동작 유지 |
 | 인쇄 안내 (grill Q6) | PDF에 안내 문구 없음. "실제 크기(100%) 인쇄"는 사내 매뉴얼로 |
 
@@ -69,7 +69,7 @@
 - 기본 폰트 Times New Roman(times.ttf, bold는 timesbd.ttf), 한글 글리프는 바탕체 — fpdf v0.9.0/gopdf v0.37.0 모두 글리프 폴백 미지원 확인(구현 중 검증). 폴백은 자체 런 분할로 구현: rune U+2E80 미만 → Times, 이상(한글/CJK/전각) → 바탕. 측정·줄바꿈·렌더 모두 런 단위 폰트 전환.
 - 폰트 파일은 사용자 제공 완료 — `fonts/` (TIMES.TTF, TIMESBD.TTF, TIMESI.TTF, TIMESBI.TTF, BATANG.TTC). 구현 시 `internal/pdf/fonts/`로 복사(또는 참조)해 `go:embed`로 바이너리에 포함. 이탤릭 2종은 현재 라벨에 미사용 — 임베드 제외.
 - batang.ttc는 TTC 컬렉션 — fpdf가 TTC를 못 읽으면 첫 face를 TTF로 추출해 사용 (구현 시 확인).
-- 바탕체는 bold face가 없음 — 한글은 바탕 regular로 렌더(확정, grill Q4). T9 시각 확인에서 너무 얇으면 synthetic bold 재검토.
+- 바탕체는 bold face가 없음 — 한글 런은 synthetic bold(fill+stroke, 스트로크 폭 0.025em)로 렌더. 실물 확인 후 확정(2026-07-20).
 - 라이선스: MS 배포 폰트(재배포 제한)를 사내 도구 바이너리에 임베드하는 것은 사용자 결정 사항(폰트 파일 사용자 제공).
 
 ## 구조 변경

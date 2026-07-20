@@ -1,6 +1,9 @@
 package pdf
 
 import (
+	"bytes"
+	"compress/zlib"
+	"io"
 	"strings"
 	"testing"
 )
@@ -184,5 +187,63 @@ func TestFitTextNarrowBoxGuaranteesWidthFit(t *testing.T) {
 		if w := textWidth(doc, size, line); w > availW+0.001 {
 			t.Errorf("fitText line %q width %v exceeds availW %v at size %v", line, w, availW, size)
 		}
+	}
+}
+
+// decompressedContent inflates every stream in a PDF and returns the
+// concatenated content (test helper for inspecting drawing operators).
+func decompressedContent(t *testing.T, pdfBytes []byte) string {
+	t.Helper()
+	var out []byte
+	rest := pdfBytes
+	for {
+		i := bytes.Index(rest, []byte("stream\n"))
+		if i < 0 {
+			break
+		}
+		rest = rest[i+len("stream\n"):]
+		j := bytes.Index(rest, []byte("endstream"))
+		if j < 0 {
+			break
+		}
+		zr, err := zlib.NewReader(bytes.NewReader(rest[:j]))
+		if err == nil {
+			d, _ := io.ReadAll(zr)
+			out = append(out, d...)
+			_ = zr.Close()
+		}
+		rest = rest[j:]
+	}
+	return string(out)
+}
+
+// Batang has no bold face, so Korean runs must be emulated-bold: drawn in
+// fill+stroke mode (2 Tr) with the mode reset afterwards. Latin-only text
+// uses the real Times bold and must never enable stroke mode.
+func TestDrawTextBoxBatangSyntheticBold(t *testing.T) {
+	doc := newDoc()
+	doc.AddPage()
+	drawTextBox(doc, 10, 10, 60, 20, "한글", 12)
+	var buf bytes.Buffer
+	if err := doc.Output(&buf); err != nil {
+		t.Fatal(err)
+	}
+	content := decompressedContent(t, buf.Bytes())
+	if !strings.Contains(content, "2 Tr") {
+		t.Error("Korean text: stroke mode (2 Tr) not enabled")
+	}
+	if !strings.Contains(content, "0 Tr") {
+		t.Error("stroke mode not reset to 0 Tr")
+	}
+
+	doc2 := newDoc()
+	doc2.AddPage()
+	drawTextBox(doc2, 10, 10, 60, 20, "Latin only", 12)
+	var buf2 bytes.Buffer
+	if err := doc2.Output(&buf2); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(decompressedContent(t, buf2.Bytes()), "2 Tr") {
+		t.Error("Latin-only text must not use stroke mode")
 	}
 }
