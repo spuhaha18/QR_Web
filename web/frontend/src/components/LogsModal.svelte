@@ -169,7 +169,7 @@
         bind:value={searchQuery}
         aria-label="로그 검색"
       />
-      <button type="button" class="logs-action-btn" class:logs-raw-on={showRaw} on:click={() => (showRaw = !showRaw)}>
+      <button type="button" class="logs-action-btn" class:logs-raw-on={showRaw} aria-pressed={showRaw} on:click={() => (showRaw = !showRaw)}>
         원문
       </button>
       {#if requestIdFilter}

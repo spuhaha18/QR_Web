@@ -105,6 +105,21 @@ func TestInitWritesFileAndClearRemovesEverything(t *testing.T) {
 	}
 }
 
+func TestInitFailsFastOnUnwritablePath(t *testing.T) {
+	dir := t.TempDir()
+	// A regular file standing in for a directory component makes the
+	// eventual mkdir/open fail immediately.
+	blocker := filepath.Join(dir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(blocker, "app.log")
+
+	if _, err := Init(path, "INFO", 10, 5); err == nil {
+		t.Fatal("want error for unwritable log path, got nil")
+	}
+}
+
 func TestClearOnStdoutOnlyLoggerIsNoop(t *testing.T) {
 	l := New(&bytes.Buffer{}, slog.LevelInfo)
 	if err := l.Clear(); err != nil {

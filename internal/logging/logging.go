@@ -43,6 +43,13 @@ func Init(logFile, level string, maxSizeMB, maxBackups int) (*Logger, error) {
 		MaxSize:    maxSizeMB,
 		MaxBackups: maxBackups,
 	}
+	// lumberjack defers opening the file to the first write, and a slog
+	// handler swallows write errors — so a bad log path (e.g. a
+	// mis-mounted Docker volume) would otherwise boot the server with
+	// silently-dead file logging. Probe writability now and fail fast.
+	if _, err := lj.Write(nil); err != nil {
+		return nil, err
+	}
 	h := slog.NewJSONHandler(io.MultiWriter(lj, os.Stdout), &slog.HandlerOptions{
 		Level: parseLevel(level),
 	})
