@@ -26,8 +26,26 @@ func colWidthToPx(w float64) float64 {
 func pxToMM(px float64) float64 { return px * mmPerInch / pxPerInch }
 func ptToMM(pt float64) float64 { return pt * mmPerInch / ptPerInch }
 
-// colMM converts a column width in char units straight to mm.
-func colMM(w float64) float64 { return pxToMM(colWidthToPx(w)) }
+// Calibration to the customer's real Excel prints (systematic-debugging
+// 2026-07-20). The nominal conversion above matches stock Excel (Calibri
+// MDW=7, 96dpi, no driver scaling), but the office's actual xlsx printout of
+// the 7cm label measures 47×150mm against the nominal 42.8625×153.9875:
+//   - width: their Excel resolves column char-widths with a larger MDW
+//     (font-metric environment), rendering columns ~10% wider
+//   - height: the Excel→printer path applies a uniform ~97.4% shrink
+// "Same size as the current labels" means matching those real prints, so all
+// x-geometry scales by calScaleX and all y-geometry by calScaleY. Re-measure
+// a test print and adjust the two measured anchors (47, 150) if still off.
+const (
+	calScaleX = 47.0 / 42.8625   // measured / nominal 7cm label width
+	calScaleY = 150.0 / 153.9875 // measured / nominal label height
+)
+
+// colMM converts a column width in char units straight to calibrated mm.
+func colMM(w float64) float64 { return pxToMM(colWidthToPx(w)) * calScaleX }
+
+// rowMM converts a row height in points to calibrated mm.
+func rowMM(pt float64) float64 { return ptToMM(pt) * calScaleY }
 
 // narrowColWidth mirrors excel.narrowColWidth (spacer cols A/N/P/T).
 const narrowColWidth = 0.375
@@ -72,7 +90,7 @@ func mainGrid(b label.BinderSize) grid {
 	cols = append(cols, colMM(narrowColWidth)) // N
 	rows := make([]float64, 0, 18)
 	for r := 1; r <= 18; r++ {
-		rows = append(rows, ptToMM(mainRowHeightsPt[r]))
+		rows = append(rows, rowMM(mainRowHeightsPt[r]))
 	}
 	return grid{colX: cumulate(cols), rowY: cumulate(rows)}
 }
@@ -85,7 +103,7 @@ func auxGrid() grid {
 	}
 	rows := make([]float64, len(auxRowHeightsPt))
 	for i, h := range auxRowHeightsPt {
-		rows[i] = ptToMM(h)
+		rows[i] = rowMM(h)
 	}
 	return grid{colX: cumulate(cols), rowY: cumulate(rows)}
 }
