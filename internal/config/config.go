@@ -23,6 +23,8 @@ type Config struct {
 	Port             int    // FLASK_PORT -> PORT (5000)
 	LogLevel         string // LOG_LEVEL (INFO)
 	LogFile          string // LOG_FILE (logs/app.log) — log viewer reads this
+	LogMaxSizeMB     int    // LOG_MAX_SIZE_MB (10) — lumberjack MaxSize
+	LogMaxBackups    int    // LOG_MAX_BACKUPS (5) — lumberjack MaxBackups
 	MaxContentLength int64  // MAX_CONTENT_LENGTH (16MB) — Fiber BodyLimit
 	MaxQRFiles       int    // MAX_QR_FILES (50)
 	MaxQRFileSize    int64  // MAX_QR_FILE_SIZE (2MB)
@@ -38,6 +40,8 @@ func Load() *Config {
 		Port:             getEnvInt("PORT", getEnvInt("FLASK_PORT", 5000)),
 		LogLevel:         getEnv("LOG_LEVEL", "INFO"),
 		LogFile:          getEnv("LOG_FILE", "logs/app.log"),
+		LogMaxSizeMB:     getEnvInt("LOG_MAX_SIZE_MB", 10),
+		LogMaxBackups:    getEnvInt("LOG_MAX_BACKUPS", 5),
 		MaxContentLength: getEnvInt64("MAX_CONTENT_LENGTH", 16*1024*1024),
 		MaxQRFiles:       getEnvInt("MAX_QR_FILES", 50),
 		MaxQRFileSize:    getEnvInt64("MAX_QR_FILE_SIZE", 2*1024*1024),
